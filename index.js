@@ -20,7 +20,7 @@ const io = new Server(server, {
     cors: { 
         origin: [
             "http://localhost:5173",
-            "https://ваш-домен.vercel.app"  // Добавите после деплоя на Vercel
+            "haikyuu-client.vercel.app"  // Добавите после деплоя на Vercel
         ], 
         methods: ["GET", "POST"],
         credentials: true
