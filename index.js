@@ -18,10 +18,7 @@ const allowedOrigins = [
 
 const io = new Server(server, {
     cors: { 
-        origin: [
-            "http://localhost:5173",
-            "haikyuu-client.vercel.app"  // Добавите после деплоя на Vercel
-        ], 
+        origin: allowedOrigins,
         methods: ["GET", "POST"],
         credentials: true
     }
@@ -228,24 +225,18 @@ io.on('connection', (socket) => {
 
         let positionName = "";
         if (targetPos === 4) positionName = "ЛЕВЫЙ ФЛАНГ";
-        if (targetPos === 3) positionName = "ЦЕНТР";
+        if (targetPos === 3) positionName = "ПАЙП (Задняя линия)"; // ✅ ИСПРАВЛЕНО
         if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
 
         // ⏱️ ЗАДЕРЖКА для анимации паса
         await delay(1000);
 
-        io.to(attackerId).emit('set_result', {
-            message: `Вы пасанули на ${positionName}. Ждем блок...`,
+        // ✅ ИСПРАВЛЕНО: Отправляем targetPos обеим командам
+        io.to(roomId).emit('set_result', {
+            message: `Передача на ${positionName}`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            targetPos: targetPos
-        });
-
-        io.to(defenderId).emit('set_result', {
-            message: `❗ Связующий сделал передачу! УГАДАЙ НАПРАВЛЕНИЕ!`,
-            phase: 'BLOCK',
-            nextTurn: defenderId,
-            targetPos: null 
+            targetPos: targetPos // Теперь обе команды знают куда полетел мяч
         });
     });
 
@@ -256,9 +247,16 @@ io.on('connection', (socket) => {
 
         const ballPos = room.gameState.ballPosition;
 
+        // ✅ ИСПРАВЛЕНО: Пайп атакует с позиции 6, а не 3
+        let attackPosition = ballPos; // По умолчанию атакует та позиция, куда пошла передача
+        if (ballPos === 3) {
+            attackPosition = 6; // ПАЙП - атака с задней линии!
+        }
+
         let correctBlockPos = 3;
         if (ballPos === 4) correctBlockPos = 2;
         if (ballPos === 2) correctBlockPos = 4;
+        if (ballPos === 3) correctBlockPos = 3; // Пайп блокируется центром
         const isGuessCorrect = blockPos === correctBlockPos;
 
         const defenderId = socket.id;
@@ -266,13 +264,16 @@ io.on('connection', (socket) => {
         const defendingTeam = isTeam1Defending ? room.team1 : room.team2;
         const attackingTeam = isTeam1Defending ? room.team2 : room.team1;
 
-        const spiker = attackingTeam.find(p => p.position === ballPos) || attackingTeam[0];
+        // ✅ ИСПРАВЛЕНО: Спайкер атакует с правильной позиции
+        const spiker = attackingTeam.find(p => p.position === attackPosition) || attackingTeam[0];
         const blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
         const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
 
+        // ✅ ИСПРАВЛЕНО: Защита на задней линии в зависимости от направления атаки
         let targetDefPos = 6; 
-        if (ballPos === 4) targetDefPos = 1;
-        if (ballPos === 2) targetDefPos = 5;
+        if (ballPos === 4) targetDefPos = 1; // Атака слева -> защита справа сзади
+        if (ballPos === 2) targetDefPos = 5; // Атака справа -> защита слева сзади
+        if (ballPos === 3) targetDefPos = 1; // Пайп -> защита на позиции 1
         const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
 
         const spikeQuirk = applyQuirks('SPIKE', spiker);
