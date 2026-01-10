@@ -187,7 +187,7 @@ io.on('connection', (socket) => {
         }
     });
 
-// 3. ПОДАЧА + ПРИВЫКАНИЕ
+// 3. ПОДАЧА + ПРИВЫКАНИЕ + КРИТ ЭЙС
     socket.on('action_serve', async ({ roomId }) => {
         const room = games[roomId];
         if (!room || room.gameState.turn !== socket.id) return;
@@ -202,21 +202,16 @@ io.on('connection', (socket) => {
         const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
         const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
 
-        // --- ЛОГИКА ПРИВЫКАНИЯ (ADAPTATION) ---
+        // --- ПРИВЫКАНИЕ ---
         if (room.gameState.lastServerId === serverPlayer.id) {
-            // Если подает тот же самый игрок
             room.gameState.serveStreak++;
         } else {
-            // Если подающий сменился (или начало игры)
             room.gameState.lastServerId = serverPlayer.id;
             room.gameState.serveStreak = 0;
         }
-
-        // Штраф растет с каждой следующей подачей подряд
-        // 1-я: 0, 2-я: -3, 3-я: -6, 4-я: -9
         const adaptationPenalty = room.gameState.serveStreak * 3;
 
-        // --- СТАТЫ И КВИРКИ ---
+        // --- СТАТЫ ---
         const sStats = getEffectiveStats(serverPlayer, attackingTeam);
         const rStats = getEffectiveStats(receiver, defendingTeam);
 
@@ -226,43 +221,45 @@ io.on('connection', (socket) => {
         const attackRoll = Math.floor(Math.random() * 20) + 1;
         const defenseRoll = Math.floor(Math.random() * 20) + 1;
         
-        // РАСЧЕТ СИЛЫ С УЧЕТОМ ШТРАФА
+        // Сила подачи
         let totalAttack = sStats.serve + attackRoll + serveQuirk.bonus - adaptationPenalty;
-        
-        // Защита от отрицательных чисел (хотя в формуле diff это не критично, но для красоты)
         if (totalAttack < 1) totalAttack = 1;
 
         const totalDefense = rStats.receive + defenseRoll + digQuirk.bonus;
         
+        // Разница (Если отрицательная - значит атака сильнее)
         const diff = totalDefense - totalAttack;
 
-        // --- ФОРМИРОВАНИЕ СООБЩЕНИЯ ---
         let message = '';
         let quirkMsg = [...serveQuirk.log, ...digQuirk.log];
-        
-        // Добавляем инфу о привыкании в лог, если штраф есть
-        if (adaptationPenalty > 0) {
-            quirkMsg.push(`📉 Привыкание: -${adaptationPenalty}`);
-        }
-        
+        if (adaptationPenalty > 0) quirkMsg.push(`📉 Привыкание: -${adaptationPenalty}`);
         if (quirkMsg.length > 0) message = `[${quirkMsg.join(' | ')}] `;
         
+        let isCritical = false; // Флаг для тряски
+
         await delay(1200);
         
-        // --- РЕЗУЛЬТАТ ---
         if (diff < -5) {
-            message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
+            // --- ЭЙС ---
+            
+            // Если разница больше 10 (например -11, -15), то это КРИТ
+            if (diff < -10) {
+                isCritical = true;
+                message += `💥 РАЗРЫВНОЙ ЭЙС! ${serverPlayer.name} сносит ${receiver.name}!`;
+            } else {
+                message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
+            }
+
             if (isTeam1) room.gameState.score.team1++;
             else room.gameState.score.team2++;
             
-            // Если эйс - подающий остается тот же, стрик увеличится в следующий раз
             room.gameState.phase = 'SERVE';
             room.gameState.turn = socket.id;
         } else {
+            // ПРИЕМ
             if (diff < 0) message += `⚠️ Тяжелый прием от ${receiver.name}...`;
             else message += `🏐 Отличный прием! ${receiver.name} поднял мяч.`;
             
-            // Смена владения - стрик сбросится при следующей подаче (так как lastServerId сменится)
             room.gameState.phase = 'SET';
             room.gameState.turn = room.players.find(id => id !== socket.id);
         }
@@ -272,7 +269,8 @@ io.on('connection', (socket) => {
             score: room.gameState.score,
             nextTurn: room.gameState.turn,
             phase: room.gameState.phase,
-            serverId: socket.id
+            serverId: socket.id,
+            isCritical: isCritical // <--- ОТПРАВЛЯЕМ ФЛАГ НА КЛИЕНТ
         });
     });
 
