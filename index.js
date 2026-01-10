@@ -356,7 +356,7 @@ io.on('connection', (socket) => {
         let targetDefPos = 6; 
         if (ballPos === 4) targetDefPos = 1; 
         if (ballPos === 2) targetDefPos = 5; 
-        if (ballPos === 3) targetDefPos = 1; 
+        if (ballPos === 3) targetDefPos = 6; 
         
         const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
 
@@ -407,7 +407,7 @@ io.on('connection', (socket) => {
 
         if (isKillBlock) {
             winner = 'DEFENSE';
-            message += `🧱 KILL BLOCK! ${blocker.name} закрыл атаку!`;
+            message += `🧱 MONSTER BLOCK! ${blocker.name} заблокировал!`;
             details = `Блок ${blockPower} > Атака ${attackPower}`;
         } else {
             let remainingForce = attackPower;
@@ -415,12 +415,15 @@ io.on('connection', (socket) => {
             
             if (isGuessCorrect) {
                 // Смягчение
-                remainingForce = Math.floor((attackPower - blockPower) / 2);
-                if (remainingForce < 0) remainingForce = 5;
+                remainingForce = Math.floor(attackPower - (blockPower * 0.5));
+                
+                // Гарантируем, что сила не уйдет в минус, но и не будет копеечной
+                if (remainingForce < 8) remainingForce = 8; 
+                
                 preMsg = `🛡️ Смягчение блоком!`;
             } else {
-                // Чистая сетка - УБРАЛИ БОНУС +5 ПО ТВОЕЙ ПРОСЬБЕ
-                remainingForce = attackPower; 
+                // Чистая сетка (Без штрафов и бонусов, просто чистая сила)
+                remainingForce = attackPower;
                 preMsg = `💥 ЧИСТАЯ СЕТКА!`;
             }
 
@@ -492,6 +495,37 @@ io.on('connection', (socket) => {
 
         const s1 = room.gameState.score.team1;
         const s2 = room.gameState.score.team2;
+
+        // --- ОПРЕДЕЛЕНИЕ КРИТИЧЕСКОГО УДАРА (ДЛЯ ТРЯСКИ) ---
+        let isCritical = false;
+
+        // 1. Если это KILL BLOCK
+        if (winner === 'DEFENSE' && isKillBlock) {
+            isCritical = true;
+        }
+        
+        // 2. Если это ГОЛ и разница сил огромная (> 10)
+        // remainingForce - это сила атаки, которая дошла до защитника (или чистая)
+        // digPower - сила приема
+        if (winner === 'ATTACK') {
+            // Если была чистая сетка или пробит блок
+            // Считаем разницу
+            let forceDifference = 0;
+            if (isKillBlock) {
+                // Блок выиграл, тут атака не при чем
+            } else {
+                let remainingForce = attackPower;
+                if (isGuessCorrect) remainingForce = Math.floor(attackPower - (blockPower * 0.5));
+                
+                // Разница между ударом и приемом
+                forceDifference = remainingForce - digPower;
+                
+                if (forceDifference > 10) {
+                    isCritical = true;
+                    message += " 💥 РАЗГРОМ!"; // Добавим пафоса в текст
+                }
+            }
+        }
         
         if (winner && (s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
             io.to(roomId).emit('game_over', {
@@ -505,7 +539,8 @@ io.on('connection', (socket) => {
                 phase: nextPhase,
                 details: details,
                 team1: room.team1, 
-                team2: room.team2
+                team2: room.team2,
+                isCritical: isCritical
             });
         }
     });

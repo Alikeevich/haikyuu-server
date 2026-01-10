@@ -19,7 +19,7 @@ const characters = [
 
     // --- NEKOMA ---
     { id: 'kuroo', name: 'Куроо Тецуро', team: 'Nekoma', stats: { power: 14, receive: 16, set: 8, block: 19, serve: 16 }, img: '/assets/kuroo.png', quirk: { name: "Килл-Блок", desc: "+4 к Блоку." } },
-    { id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, img: '/assets/kenma.png', quirk: { name: "Мозг Некомы", desc: "Если в команде, все игроки Некомы получают +2 ко всем статам." } },
+    { id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, img: '/assets/kenma.png', quirk: { name: "Мозг Некомы", desc: "Если в команде, все игроки из Некомы получают +2 ко всем статам." } },
     { id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', stats: { power: 8, receive: 20, set: 10, block: 2, serve: 5 }, img: '/assets/yaku.png', quirk: { name: "Страж", desc: "+4 к Приему." } },
     { id: 'yamamoto', name: 'Ямамото Такетора', team: 'Nekoma', stats: { power: 16, receive: 15, set: 5, block: 9, serve: 14 }, img: '/assets/yamamoto.png', quirk: null },
     { id: 'lev', name: 'Хайба Лев', team: 'Nekoma', stats: { power: 17, receive: 5, set: 3, block: 11, serve: 12 }, img: '/assets/lev.png', quirk: null },
