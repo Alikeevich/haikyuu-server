@@ -1,293 +1,66 @@
 const characters = [
-    // ==========================================
-    // KARASUNO
-    // ==========================================
-    { 
-        id: 'hinata', name: 'Хината Шоё', team: 'Karasuno', 
-        stats: { power: 12, receive: 7, set: 5, block: 9, serve: 10 }, 
-        img: '/assets/hinata.png',
-        quirk: { name: "Вжух!", desc: "+5 к Атаке за счет скорости." } 
-    },
-    { 
-        id: 'kageyama', name: 'Кагеяма Тобио', team: 'Karasuno', 
-        stats: { power: 15, receive: 14, set: 20, block: 14, serve: 19 }, 
-        img: '/assets/kageyama.png',
-        quirk: { name: "Король Площадки", desc: "+3 к Подаче и Блоку." } 
-    },
-    { 
-        id: 'nishinoya', name: 'Нишиноя Ю', team: 'Karasuno', 
-        stats: { power: 6, receive: 20, set: 9, block: 3, serve: 5 }, // Либеро не подает, но стат пусть будет
-        img: '/assets/nishinoya.png',
-        quirk: { name: "Rolling Thunder", desc: "+5 к Приему (Dig)." }
-    },
-    { 
-        id: 'tsukishima', name: 'Цукишима Кей', team: 'Karasuno', 
-        stats: { power: 11, receive: 12, set: 11, block: 17, serve: 13 }, 
-        img: '/assets/tsukishima.png',
-        quirk: { name: "Чтение Блока", desc: "+4 к Блоку." }
-    },
-    { 
-        id: 'daichi', name: 'Савамура Дайчи', team: 'Karasuno', 
-        stats: { power: 13, receive: 19, set: 8, block: 10, serve: 13 }, 
-        img: '/assets/daichi.png', 
-        quirk: { name: "Капитан", desc: "+2 к Приему." } 
-    },
-    { 
-        id: 'asahi', name: 'Адзумане Асахи', team: 'Karasuno', 
-        stats: { power: 19, receive: 11, set: 4, block: 12, serve: 17 }, 
-        img: '/assets/asahi.png', 
-        quirk: { name: "Ас", desc: "+3 к Атаке." } 
-    },
-    { 
-        id: 'tanaka', name: 'Танака Рюноске', team: 'Karasuno', 
-        stats: { power: 16, receive: 10, set: 5, block: 8, serve: 15 }, 
-        img: '/assets/tanaka.png', 
-        quirk: { name: "Менталитет", desc: "Не теряет дух после блока." } 
-    },
-    { 
-        id: 'yamaguchi', name: 'Ямагучи Тадаши', team: 'Karasuno', 
-        stats: { power: 12, receive: 9, set: 6, block: 7, serve: 18 }, // Пинч-сервер
-        img: '/assets/yamaguchi.png', 
-        quirk: { name: "Планер", desc: "+4 к Подаче (Сложнее принять)." } 
-    },
-    { 
-        id: 'ennoshita', name: 'Энношита Чикара', team: 'Karasuno', 
-        stats: { power: 11, receive: 14, set: 8, block: 9, serve: 12 }, 
-        img: '/assets/ennoshita.png', 
-        quirk: { name: "Замена Капитана", desc: "Стабильный прием." } 
-    },
+    // --- KARASUNO ---
+    { id: 'hinata', name: 'Хината Шоё', team: 'Karasuno', stats: { power: 12, receive: 7, set: 5, block: 9, serve: 10 }, img: '/assets/hinata.png', quirk: { name: "Вжух!", desc: "+5 к Атаке за счет скорости." } },
+    { id: 'kageyama', name: 'Кагеяма Тобио', team: 'Karasuno', stats: { power: 15, receive: 14, set: 20, block: 14, serve: 19 }, img: '/assets/kageyama.png', quirk: { name: "Король Площадки", desc: "Максимальный бонус к атаке спайкера (+5)." } },
+    { id: 'nishinoya', name: 'Нишиноя Ю', team: 'Karasuno', stats: { power: 6, receive: 20, set: 9, block: 3, serve: 5 }, img: '/assets/nishinoya.png', quirk: { name: "Rolling Thunder", desc: "+5 к Приему." } },
+    { id: 'tsukishima', name: 'Цукишима Кей', team: 'Karasuno', stats: { power: 11, receive: 12, set: 11, block: 17, serve: 13 }, img: '/assets/tsukishima.png', quirk: { name: "Чтение Блока", desc: "+4 к Блоку." } },
+    { id: 'daichi', name: 'Савамура Дайчи', team: 'Karasuno', stats: { power: 13, receive: 19, set: 8, block: 10, serve: 13 }, img: '/assets/daichi.png', quirk: { name: "Капитан", desc: "+2 к Приему." } },
+    { id: 'asahi', name: 'Адзумане Асахи', team: 'Karasuno', stats: { power: 19, receive: 11, set: 4, block: 12, serve: 17 }, img: '/assets/asahi.png', quirk: { name: "Ас", desc: "+3 к Атаке." } },
+    { id: 'tanaka', name: 'Танака Рюноске', team: 'Karasuno', stats: { power: 16, receive: 10, set: 5, block: 8, serve: 15 }, img: '/assets/tanaka.png', quirk: null },
+    { id: 'yamaguchi', name: 'Ямагучи Тадаши', team: 'Karasuno', stats: { power: 12, receive: 9, set: 6, block: 7, serve: 18 }, img: '/assets/yamaguchi.png', quirk: { name: "Планер", desc: "+4 к Подаче." } },
+    { id: 'ennoshita', name: 'Энношита Чикара', team: 'Karasuno', stats: { power: 11, receive: 14, set: 8, block: 9, serve: 12 }, img: '/assets/ennoshita.png', quirk: { name: "Замена", desc: "Стабильность." } },
 
-    // ==========================================
-    // AOBA JOHSAI (SEIJOH)
-    // ==========================================
-    { 
-        id: 'oikawa', name: 'Ойкава Тоору', team: 'Seijoh', 
-        stats: { power: 17, receive: 13, set: 19, block: 11, serve: 20 }, 
-        img: '/assets/oikawa.png',
-        quirk: { name: "Убийственная Подача", desc: "+5 к Подаче." }
-    },
-    { 
-        id: 'iwai', name: 'Иваизуми Хаджиме', team: 'Seijoh', 
-        stats: { power: 18, receive: 14, set: 7, block: 10, serve: 16 }, 
-        img: '/assets/iwai.png', 
-        quirk: { name: "Ас Сейджо", desc: "+2 к Атаке." } 
-    },
-    { 
-        id: 'kyotani', name: 'Кётани (Бешеный пёс)', team: 'Seijoh', 
-        stats: { power: 19, receive: 8, set: 4, block: 10, serve: 16 }, 
-        img: '/assets/kyotani.png', 
-        quirk: { name: "Острый угол", desc: "Мощная атака с фланга." } 
-    },
-    { 
-        id: 'kunimi', name: 'Куними Акира', team: 'Seijoh', 
-        stats: { power: 12, receive: 15, set: 12, block: 9, serve: 14 }, 
-        img: '/assets/kunimi.png', 
-        quirk: { name: "Энергосбережение", desc: "Эффективен в конце игры." } 
-    },
-    { 
-        id: 'kindaichi', name: 'Киндаичи Ютаро', team: 'Seijoh', 
-        stats: { power: 14, receive: 10, set: 5, block: 13, serve: 13 }, 
-        img: '/assets/kindaichi.png', 
-        quirk: { name: "Широкий бег", desc: "Хорошая атака первым темпом." } 
-    },
+    // --- AOBA JOHSAI ---
+    { id: 'oikawa', name: 'Ойкава Тоору', team: 'Seijoh', stats: { power: 17, receive: 13, set: 19, block: 11, serve: 20 }, img: '/assets/oikawa.png', quirk: { name: "Великий Король", desc: "+5 к Подаче, высокий бонус паса." } },
+    { id: 'iwai', name: 'Иваизуми Хаджиме', team: 'Seijoh', stats: { power: 18, receive: 14, set: 7, block: 10, serve: 16 }, img: '/assets/iwai.png', quirk: { name: "Ас Сейджо", desc: "+2 к Атаке." } },
+    { id: 'kyotani', name: 'Кётани (Пёс)', team: 'Seijoh', stats: { power: 19, receive: 8, set: 4, block: 10, serve: 16 }, img: '/assets/kyotani.png', quirk: { name: "Острый угол", desc: "+3 Атаки, но риск аута." } },
+    { id: 'kunimi', name: 'Куними Акира', team: 'Seijoh', stats: { power: 12, receive: 15, set: 12, block: 9, serve: 14 }, img: '/assets/kunimi.png', quirk: null },
+    { id: 'kindaichi', name: 'Киндаичи Ютаро', team: 'Seijoh', stats: { power: 14, receive: 10, set: 5, block: 13, serve: 13 }, img: '/assets/kindaichi.png', quirk: null },
 
-    // ==========================================
-    // NEKOMA
-    // ==========================================
-    { 
-        id: 'kuroo', name: 'Куроо Тецуро', team: 'Nekoma', 
-        stats: { power: 14, receive: 16, set: 8, block: 19, serve: 16 }, 
-        img: '/assets/kuroo.png',
-        quirk: { name: "Килл-Блок", desc: "+4 к Блоку." }
-    },
-    { 
-        id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', 
-        stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, 
-        img: '/assets/kenma.png',
-        quirk: { name: "Мозг", desc: "Увеличивает шанс удачи команды." }
-    },
-    { 
-        id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', 
-        stats: { power: 8, receive: 20, set: 10, block: 4, serve: 5 }, 
-        img: '/assets/yaku.png', 
-        quirk: { name: "Страж Некомы", desc: "+4 к Приему." } 
-    },
-    { 
-        id: 'yamamoto', name: 'Ямамото Такетора', team: 'Nekoma', 
-        stats: { power: 16, receive: 15, set: 5, block: 9, serve: 14 }, 
-        img: '/assets/yamamoto.png', 
-        quirk: { name: "Упорство", desc: "Хорош и в атаке, и в защите." } 
-    },
-    { 
-        id: 'lev', name: 'Хайба Лев', team: 'Nekoma', 
-        stats: { power: 17, receive: 5, set: 3, block: 11, serve: 12 }, 
-        img: '/assets/lev.png', 
-        quirk: { name: "Хлыст", desc: "Высокая атака, но плохой прием." } 
-    },
-    { 
-        id: 'fukunaga', name: 'Фукунага Шохей', team: 'Nekoma', 
-        stats: { power: 13, receive: 14, set: 6, block: 8, serve: 14 }, 
-        img: '/assets/fukunaga.png', 
-        quirk: { name: "Снайпер", desc: "Бьет точно в линии." } 
-    },
-    { 
-        id: 'kai', name: 'Кай Нобуюки', team: 'Nekoma', 
-        stats: { power: 12, receive: 16, set: 10, block: 10, serve: 12 }, 
-        img: '/assets/kai.png', 
-        quirk: { name: "Надежность", desc: "Стабильный прием." } 
-    },
-    { 
-        id: 'inuoka', name: 'Инуока Со', team: 'Nekoma', 
-        stats: { power: 13, receive: 11, set: 4, block: 12, serve: 11 }, 
-        img: '/assets/inuoka.png', 
-        quirk: { name: "Скорость", desc: "Быстрый блокирующий." } 
-    },
+    // --- NEKOMA ---
+    { id: 'kuroo', name: 'Куроо Тецуро', team: 'Nekoma', stats: { power: 14, receive: 16, set: 8, block: 19, serve: 16 }, img: '/assets/kuroo.png', quirk: { name: "Килл-Блок", desc: "+4 к Блоку." } },
+    { id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, img: '/assets/kenma.png', quirk: { name: "Мозг Некомы", desc: "Если в команде, все игроки Некомы получают +2 ко всем статам." } },
+    { id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', stats: { power: 8, receive: 20, set: 10, block: 4, serve: 5 }, img: '/assets/yaku.png', quirk: { name: "Страж", desc: "+4 к Приему." } },
+    { id: 'yamamoto', name: 'Ямамото Такетора', team: 'Nekoma', stats: { power: 16, receive: 15, set: 5, block: 9, serve: 14 }, img: '/assets/yamamoto.png', quirk: null },
+    { id: 'lev', name: 'Хайба Лев', team: 'Nekoma', stats: { power: 17, receive: 5, set: 3, block: 11, serve: 12 }, img: '/assets/lev.png', quirk: null },
+    { id: 'fukunaga', name: 'Фукунага Шохей', team: 'Nekoma', stats: { power: 13, receive: 14, set: 6, block: 8, serve: 14 }, img: '/assets/fukunaga.png', quirk: null },
+    { id: 'kai', name: 'Кай Нобуюки', team: 'Nekoma', stats: { power: 12, receive: 16, set: 10, block: 10, serve: 12 }, img: '/assets/kai.png', quirk: null },
+    { id: 'inuoka', name: 'Инуока Со', team: 'Nekoma', stats: { power: 13, receive: 11, set: 4, block: 12, serve: 11 }, img: '/assets/inuoka.png', quirk: null },
 
-    // ==========================================
-    // SHIRATORIZAWA
-    // ==========================================
-    { 
-        id: 'ushijima', name: 'Ушиджима Вакатоши', team: 'Shiratorizawa', 
-        stats: { power: 20, receive: 13, set: 5, block: 14, serve: 19 }, 
-        img: '/assets/ushijima.png',
-        quirk: { name: "Левша", desc: "+4 к Атаке и Подаче." }
-    },
-    { 
-        id: 'tendo', name: 'Тендо Сатори', team: 'Shiratorizawa', 
-        stats: { power: 12, receive: 8, set: 4, block: 18, serve: 12 }, 
-        img: '/assets/tendo.png', 
-        quirk: { name: "Интуиция", desc: "+5 к Блоку (Guess Block)." }
-    },
-    { 
-        id: 'goshiki', name: 'Гошики Цутому', team: 'Shiratorizawa', 
-        stats: { power: 16, receive: 11, set: 5, block: 9, serve: 16 }, 
-        img: '/assets/goshiki.png', 
-        quirk: { name: "Супер-диагональ", desc: "Точные удары в углы." } 
-    },
+    // --- SHIRATORIZAWA ---
+    { id: 'ushijima', name: 'Ушиджима Вакатоши', team: 'Shiratorizawa', stats: { power: 20, receive: 13, set: 5, block: 14, serve: 19 }, img: '/assets/ushijima.png', quirk: { name: "Левша", desc: "+4 к Атаке и Подаче." } },
+    { id: 'tendo', name: 'Тендо Сатори', team: 'Shiratorizawa', stats: { power: 12, receive: 8, set: 4, block: 18, serve: 12 }, img: '/assets/tendo.png', quirk: { name: "Guess Block", desc: "Если угадал, сила блока удваивается (+10)." } },
+    { id: 'goshiki', name: 'Гошики Цутому', team: 'Shiratorizawa', stats: { power: 16, receive: 11, set: 5, block: 9, serve: 16 }, img: '/assets/goshiki.png', quirk: null },
 
-    // ==========================================
-    // INARIZAKI
-    // ==========================================
-    { 
-        id: 'atsumu', name: 'Мия Атсуму', team: 'Inarizaki', 
-        stats: { power: 16, receive: 13, set: 19, block: 10, serve: 19 }, 
-        img: '/assets/atsumu.png', 
-        quirk: { name: "Двойной вилд", desc: "Мастер подач и паса." } 
-    },
-    { 
-        id: 'osamu', name: 'Мия Осаму', team: 'Inarizaki', 
-        stats: { power: 16, receive: 14, set: 16, block: 11, serve: 16 }, 
-        img: '/assets/osamu.png', 
-        quirk: { name: "Близнецы", desc: "Может пасовать брату." } 
-    },
-    { 
-        id: 'aran', name: 'Оджиро Аран', team: 'Inarizaki', 
-        stats: { power: 19, receive: 12, set: 5, block: 11, serve: 17 }, 
-        img: '/assets/aran.png', 
-        quirk: { name: "Топ-3 Ас", desc: "Огромная сила удара над блоком." } 
-    },
-    { 
-        id: 'suna', name: 'Суна Ринтаро', team: 'Inarizaki', 
-        stats: { power: 15, receive: 9, set: 6, block: 16, serve: 14 }, 
-        img: '/assets/suna.png', 
-        quirk: { name: "Широкая атака", desc: "Огибает блок корпусом (+Атака)." } 
-    },
+    // --- INARIZAKI ---
+    { id: 'atsumu', name: 'Мия Атсуму', team: 'Inarizaki', stats: { power: 16, receive: 13, set: 19, block: 10, serve: 19 }, img: '/assets/atsumu.png', quirk: { name: "Двойной вилд", desc: "Высокий бонус паса и сильная подача." } },
+    { id: 'osamu', name: 'Мия Осаму', team: 'Inarizaki', stats: { power: 16, receive: 14, set: 16, block: 11, serve: 16 }, img: '/assets/osamu.png', quirk: null },
+    { id: 'aran', name: 'Оджиро Аран', team: 'Inarizaki', stats: { power: 19, receive: 12, set: 5, block: 11, serve: 17 }, img: '/assets/aran.png', quirk: { name: "Топ-3 Ас", desc: "+3 к Атаке." } },
+    { id: 'suna', name: 'Суна Ринтаро', team: 'Inarizaki', stats: { power: 15, receive: 9, set: 6, block: 16, serve: 14 }, img: '/assets/suna.png', quirk: { name: "Широкая атака", desc: "Сложнее заблокировать." } },
 
-    // ==========================================
-    // FUKURODANI
-    // ==========================================
-    { 
-        id: 'bokuto', name: 'Бокуто Котаро', team: 'Fukurodani', 
-        stats: { power: 19, receive: 12, set: 5, block: 11, serve: 16 }, 
-        img: '/assets/bokuto.png', 
-        quirk: { name: "Эмо-Мод", desc: "Рандом: либо +8 к Атаке, либо -5." }
-    },
-    { 
-        id: 'akaashi', name: 'Акааши Кейджи', team: 'Fukurodani', 
-        stats: { power: 11, receive: 13, set: 18, block: 10, serve: 14 }, 
-        img: '/assets/akaashi.png', 
-        quirk: { name: "Контроль", desc: "Стабильный сеттер." } 
-    },
+    // --- FUKURODANI ---
+    { id: 'bokuto', name: 'Бокуто Котаро', team: 'Fukurodani', stats: { power: 19, receive: 12, set: 5, block: 11, serve: 16 }, img: '/assets/bokuto.png', quirk: { name: "Эмо-Мод", desc: "Рандом: либо +8 к Атаке, либо -5." } },
+    { id: 'akaashi', name: 'Акааши Кейджи', team: 'Fukurodani', stats: { power: 11, receive: 13, set: 18, block: 10, serve: 14 }, img: '/assets/akaashi.png', quirk: { name: "Контроль", desc: "Стабильный бонус паса." } },
 
-    // ==========================================
-    // KAMOMEDAI
-    // ==========================================
-    { 
-        id: 'hoshiumi', name: 'Хошиуми Корай', team: 'Kamomedai', 
-        stats: { power: 16, receive: 17, set: 15, block: 14, serve: 18 }, 
-        img: '/assets/hoshiumi.png', 
-        quirk: { name: "Маленький Гигант", desc: "Умеет всё. Бонус к прыжку." } 
-    },
-    { 
-        id: 'hirugami', name: 'Хиругами Сачиро', team: 'Kamomedai', 
-        stats: { power: 12, receive: 11, set: 8, block: 19, serve: 15 }, 
-        img: '/assets/hirugami.png', 
-        quirk: { name: "Неподвижный", desc: "Не ведется на финты (+Блок)." } 
-    },
+    // --- KAMOMEDAI ---
+    { id: 'hoshiumi', name: 'Хошиуми Корай', team: 'Kamomedai', stats: { power: 16, receive: 17, set: 15, block: 14, serve: 18 }, img: '/assets/hoshiumi.png', quirk: { name: "Маленький Гигант", desc: "Универсал." } },
+    { id: 'hirugami', name: 'Хиругами Сачиро', team: 'Kamomedai', stats: { power: 12, receive: 11, set: 8, block: 19, serve: 15 }, img: '/assets/hirugami.png', quirk: { name: "Неподвижный", desc: "+3 к Блоку." } },
 
-    // ==========================================
-    // DATE TECH (DATEKO)
-    // ==========================================
-    { 
-        id: 'aone', name: 'Аоне Таканобу', team: 'Dateko', 
-        stats: { power: 14, receive: 9, set: 4, block: 19, serve: 13 }, 
-        img: '/assets/aone.png', 
-        quirk: { name: "Железная стена", desc: "Мощнейший блок в игре." } 
-    },
-    { 
-        id: 'koganegawa', name: 'Коганегава Канджи', team: 'Dateko', 
-        stats: { power: 15, receive: 7, set: 12, block: 16, serve: 11 }, 
-        img: '/assets/koganegawa.png', 
-        quirk: { name: "Высокий пас", desc: "Сеттер-блокер." } 
-    },
+    // --- DATEKO ---
+    { id: 'aone', name: 'Аоне Таканобу', team: 'Dateko', stats: { power: 14, receive: 9, set: 4, block: 19, serve: 13 }, img: '/assets/aone.png', quirk: { name: "Железная стена", desc: "Мощный блок." } },
+    { id: 'koganegawa', name: 'Коганегава Канджи', team: 'Dateko', stats: { power: 15, receive: 7, set: 12, block: 16, serve: 11 }, img: '/assets/koganegawa.png', quirk: null },
 
-    // ==========================================
-    // ITACHIYAMA
-    // ==========================================
-    { 
-        id: 'sakusa', name: 'Сакуса Киёми', team: 'Itachiyama', 
-        stats: { power: 18, receive: 17, set: 8, block: 12, serve: 18 }, 
-        img: '/assets/sakusa.png', 
-        quirk: { name: "Вращение", desc: "Мяч с диким вращением, сложно принять." } 
-    },
+    // --- ITACHIYAMA ---
+    { id: 'sakusa', name: 'Сакуса Киёми', team: 'Itachiyama', stats: { power: 18, receive: 17, set: 8, block: 12, serve: 18 }, img: '/assets/sakusa.png', quirk: { name: "Вращение", desc: "Бьет по диагонали. Принимать сложно." } },
 
-    // ==========================================
-    // MUJINAZAKA
-    // ==========================================
-    { 
-        id: 'kiryu', name: 'Кирью Вакацу', team: 'Mujinazaka', 
-        stats: { power: 19, receive: 13, set: 6, block: 11, serve: 17 }, 
-        img: '/assets/kiryu.png', 
-        quirk: { name: "Бэнкей", desc: "Забивает даже с плохих пасов (+Мощь)." } 
-    },
+    // --- MUJINAZAKA ---
+    { id: 'kiryu', name: 'Кирью Вакацу', team: 'Mujinazaka', stats: { power: 19, receive: 13, set: 6, block: 11, serve: 17 }, img: '/assets/kiryu.png', quirk: { name: "Бэнкей", desc: "+3 к Атаке." } },
 
-    // ==========================================
-    // OTHERS (РАЗНЫЕ КОМАНДЫ)
-    // ==========================================
-    { 
-        id: 'hyakuzawa', name: 'Хякузава Юдай', team: 'Kakugawa', 
-        stats: { power: 17, receive: 5, set: 3, block: 12, serve: 10 }, 
-        img: '/assets/hyakuzawa.png', 
-        quirk: { name: "2 Метра", desc: "Просто бьет выше блока." } 
-    },
-    { 
-        id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', 
-        stats: { power: 13, receive: 15, set: 7, block: 10, serve: 14 }, 
-        img: '/assets/daishou.png', 
-        quirk: { name: "Хитрость", desc: "Финты и обманы." } 
-    },
-    { 
-        id: 'takeru', name: 'Накашима Такеру', team: 'Wakutani', 
-        stats: { power: 14, receive: 14, set: 6, block: 8, serve: 13 }, 
-        img: '/assets/takeru.png', 
-        quirk: { name: "Блок-аут", desc: "Мастер отыгрыша от блока." } 
-    },
-    { 
-        id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', 
-        stats: { power: 16, receive: 9, set: 5, block: 8, serve: 15 }, 
-        img: '/assets/gora.png', 
-        quirk: { name: "Подача", desc: "Капитан команды подающих." } 
-    }
+    // --- OTHERS ---
+    { id: 'hyakuzawa', name: 'Хякузава Юдай', team: 'Kakugawa', stats: { power: 17, receive: 5, set: 3, block: 12, serve: 10 }, img: '/assets/hyakuzawa.png', quirk: { name: "2 Метра", desc: "Иммунитет к Килл-Блоку." } },
+    { id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', stats: { power: 13, receive: 15, set: 7, block: 10, serve: 14 }, img: '/assets/daishou.png', quirk: { name: "Хитрость", desc: "Финты." } },
+    { id: 'takeru', name: 'Накашима Такеру', team: 'Wakutani', stats: { power: 14, receive: 14, set: 6, block: 8, serve: 13 }, img: '/assets/takeru.png', quirk: { name: "Блок-аут", desc: "Отыгрыш." } },
+    { id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', stats: { power: 16, receive: 9, set: 5, block: 8, serve: 15 }, img: '/assets/gora.png', quirk: null }
 ];
 
 module.exports = characters;

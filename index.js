@@ -13,7 +13,8 @@ const server = http.createServer(app);
 const allowedOrigins = [
     "http://localhost:5173",
     "http://localhost:3000",
-    process.env.CLIENT_URL, // Добавьте в переменные окружения Railway
+    "haikyuu-client.vercel.app",
+    process.env.CLIENT_URL,
 ].filter(Boolean);
 
 const io = new Server(server, {
@@ -42,8 +43,22 @@ function rotateTeam(team) {
     team.forEach(p => p.position = p.newPos);
 }
 
+// --- УЧЕТ ПАССИВКИ КЕНМЫ ---
+function getEffectiveStats(player, team) {
+    let stats = { ...player.stats };
+    const hasKenma = team.some(p => p.id === 'kenma');
+    if (hasKenma && player.team === 'Nekoma') {
+        stats.power += 2;
+        stats.receive += 2;
+        stats.block += 2;
+        stats.serve += 2;
+        stats.set += 2;
+    }
+    return stats;
+}
+
 // --- ФУНКЦИЯ КВИРКОВ ---
-function applyQuirks(actionType, player) {
+function applyQuirks(actionType, player, effectiveStats) {
     let bonus = 0;
     let log = [];
 
@@ -53,15 +68,19 @@ function applyQuirks(actionType, player) {
         if (player.id === 'oikawa') { bonus += 5; log.push(`👽 Убийственная подача!`); }
         if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Пушечная подача!`); }
         if (player.id === 'kageyama') { bonus += 3; log.push(`👑 Подача Короля!`); }
+        if (player.id === 'atsumu') { bonus += 4; log.push(`🦊 Двойной вилд!`); }
+        if (player.id === 'yamaguchi') { bonus += 4; log.push(`🎈 Планер!`); }
     }
 
     if (actionType === 'SPIKE') {
-        if (player.id === 'hinata') { bonus += 5; log.push(`🍊 ВЖУХ! Скорость!`); }
+        if (player.id === 'hinata') { bonus += 5; log.push(`🍊 ВЖУХ!`); }
         if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Мощь Ушиджимы!`); }
         if (player.id === 'asahi') { bonus += 3; log.push(`🙏 Пробой Аса!`); }
+        if (player.id === 'aran') { bonus += 3; log.push(`🦊 Топ-3 Ас!`); }
+        if (player.id === 'kiryu') { bonus += 3; log.push(`👹 Бэнкей!`); }
         if (player.id === 'bokuto') {
             if (Math.random() > 0.4) {
-                bonus += 8; log.push(`🦉 ХЕЙ ХЕЙ ХЕЙ! (Топ форма)`);
+                bonus += 8; log.push(`🦉 ХЕЙ ХЕЙ ХЕЙ!`);
             } else {
                 bonus -= 5; log.push(`🦉 Бокуто приуныл...`);
             }
@@ -69,9 +88,11 @@ function applyQuirks(actionType, player) {
     }
 
     if (actionType === 'BLOCK') {
-        if (player.id === 'kuroo') { bonus += 4; log.push(`😼 Килл-блок Куроо!`); }
+        if (player.id === 'kuroo') { bonus += 4; log.push(`😼 Килл-блок!`); }
         if (player.id === 'tsukishima') { bonus += 4; log.push(`🌙 Чтение блока!`); }
         if (player.id === 'tendo') { bonus += 5; log.push(`👻 Guess Block!`); }
+        if (player.id === 'aone') { bonus += 5; log.push(`🛡️ Железная стена!`); }
+        if (player.id === 'hirugami') { bonus += 3; log.push(`🗿 Неподвижный!`); }
     }
 
     if (actionType === 'DIG') {
@@ -110,8 +131,6 @@ io.on('connection', (socket) => {
                 players: room.players,
                 allCharacters: characters 
             });
-
-            // Жребий: кто первый выбирает в драфте
             room.draftTurn = room.players[Math.random() < 0.5 ? 0 : 1];
             io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
         } else {
@@ -122,23 +141,14 @@ io.on('connection', (socket) => {
     socket.on('character_picked', ({ roomId, charId }) => {
         const room = games[roomId];
         if (!room) return;
-
-        // Проверяем очередь драфта
-        if (room.draftTurn && room.draftTurn !== socket.id) {
-            socket.emit('error_message', 'Сейчас не ваш ход в драфте');
-            return;
-        }
+        if (room.draftTurn && room.draftTurn !== socket.id) return;
 
         if (!room.bannedCharacters.includes(charId)) {
             room.bannedCharacters.push(charId);
             io.to(roomId).emit('banned_characters', room.bannedCharacters);
-
-            // Передаём ход другому игроку
             const otherId = room.players.find(id => id !== socket.id);
             room.draftTurn = otherId;
             io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
-        } else {
-            socket.emit('error_message', 'Этот персонаж уже выбран');
         }
     });
 
@@ -158,10 +168,10 @@ io.on('connection', (socket) => {
                 phase: 'SERVE', 
                 turn: servingPlayerId, 
                 score: { team1: 0, team2: 0 },
-                servingTeam: firstServerIndex === 0 ? 'team1' : 'team2'
+                servingTeam: firstServerIndex === 0 ? 'team1' : 'team2',
+                setterBonus: 0
             };
 
-            // Завершаем драфт
             room.draftTurn = null;
             io.to(roomId).emit('draft_finished');
 
@@ -175,7 +185,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 3. ПОДАЧА (с задержкой)
+    // 3. ПОДАЧА
     socket.on('action_serve', async ({ roomId }) => {
         const room = games[roomId];
         if (!room || room.gameState.turn !== socket.id) return;
@@ -190,14 +200,18 @@ io.on('connection', (socket) => {
         const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
         const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
 
-        const serveQuirk = applyQuirks('SERVE', serverPlayer);
-        const digQuirk = applyQuirks('DIG', receiver);
+        const sStats = getEffectiveStats(serverPlayer, attackingTeam);
+        const rStats = getEffectiveStats(receiver, defendingTeam);
+
+        const serveQuirk = applyQuirks('SERVE', serverPlayer, sStats);
+        const digQuirk = applyQuirks('DIG', receiver, rStats);
 
         const attackRoll = Math.floor(Math.random() * 20) + 1;
         const defenseRoll = Math.floor(Math.random() * 20) + 1;
         
-        const totalAttack = serverPlayer.stats.serve + attackRoll + serveQuirk.bonus;
-        const totalDefense = receiver.stats.receive + defenseRoll + digQuirk.bonus;
+        // ВАЖНО: Используем sStats.serve (стат Подачи), а не Power
+        const totalAttack = sStats.serve + attackRoll + serveQuirk.bonus;
+        const totalDefense = rStats.receive + defenseRoll + digQuirk.bonus;
         
         const diff = totalDefense - totalAttack;
 
@@ -205,20 +219,17 @@ io.on('connection', (socket) => {
         let quirkMsg = [...serveQuirk.log, ...digQuirk.log].join(' | ');
         if (quirkMsg) message = `[${quirkMsg}] `;
         
-        // ⏱️ ЗАДЕРЖКА для анимации подачи
         await delay(1200);
         
         if (diff < -5) {
             message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
             if (isTeam1) room.gameState.score.team1++;
             else room.gameState.score.team2++;
-            
             room.gameState.phase = 'SERVE';
             room.gameState.turn = socket.id;
         } else {
             if (diff < 0) message += `⚠️ Тяжелый прием от ${receiver.name}...`;
             else message += `🏐 Отличный прием! ${receiver.name} поднял мяч.`;
-            
             room.gameState.phase = 'SET';
             room.gameState.turn = room.players.find(id => id !== socket.id);
         }
@@ -232,29 +243,37 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 4. ПАС (с задержкой)
+    // 4. ПАС
     socket.on('action_set', async ({ roomId, targetPos }) => {
         const room = games[roomId];
         if (!room) return;
 
+        const setterId = socket.id;
+        const isTeam1 = room.players[0] === socket.id;
+        const myTeam = isTeam1 ? room.team1 : room.team2;
+        
+        const setterPlayer = myTeam.find(p => p.position === 3) || myTeam[0];
+        const sStats = getEffectiveStats(setterPlayer, myTeam);
+        
+        // Бонус от качества паса
+        const setterBonus = Math.floor(sStats.set / 4);
+        room.gameState.setterBonus = setterBonus;
+
         room.gameState.ballPosition = targetPos;
         room.gameState.phase = 'BLOCK';
         
-        const attackerId = socket.id;
         const defenderId = room.players.find(id => id !== socket.id);
         room.gameState.turn = defenderId;
 
         let positionName = "";
         if (targetPos === 4) positionName = "ЛЕВЫЙ ФЛАНГ";
-        if (targetPos === 3) positionName = "ПАЙП (Задняя линия)"; // ✅ ИСПРАВЛЕНО
+        if (targetPos === 3) positionName = "ПАЙП (Задняя линия)";
         if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
 
-        // ⏱️ ЗАДЕРЖКА для анимации паса
         await delay(1000);
 
-        // Отправляем цель только сеттеру, а оппоненту — уведомление без цели
         socket.emit('set_result', {
-            message: `Передача на ${positionName}`,
+            message: `Передача на ${positionName} (Бонус +${setterBonus})`,
             phase: 'BLOCK',
             nextTurn: defenderId,
             targetPos: targetPos,
@@ -269,58 +288,67 @@ io.on('connection', (socket) => {
         });
     });
 
-    // 5. БЛОК (с задержкой)
+    // 5. БЛОК
     socket.on('action_block', async ({ roomId, blockPos }) => {
         const room = games[roomId];
         if (!room) return;
 
         const ballPos = room.gameState.ballPosition;
+        let attackPosition = ballPos;
+        if (ballPos === 3) attackPosition = 6; 
 
-        // ✅ ИСПРАВЛЕНО: Пайп атакует с позиции 6, а не 3
-        let attackPosition = ballPos; // По умолчанию атакует та позиция, куда пошла передача
-        if (ballPos === 3) {
-            attackPosition = 6; // ПАЙП - атака с задней линии!
-        }
-
+        // --- ЛОГИКА БЛОКА ---
         let correctBlockPos = 3;
         if (ballPos === 4) correctBlockPos = 2;
         if (ballPos === 2) correctBlockPos = 4;
-        if (ballPos === 3) correctBlockPos = 3; // Пайп блокируется центром
-        const isGuessCorrect = blockPos === correctBlockPos;
-
+        if (ballPos === 3) correctBlockPos = 3; 
+        
         const defenderId = socket.id;
         const isTeam1Defending = room.players[0] === defenderId;
         const defendingTeam = isTeam1Defending ? room.team1 : room.team2;
         const attackingTeam = isTeam1Defending ? room.team2 : room.team1;
 
-        // ✅ ИСПРАВЛЕНО: Спайкер атакует с правильной позиции
         const spiker = attackingTeam.find(p => p.position === attackPosition) || attackingTeam[0];
-        const blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
+        
+        // Логика Сакусы
+        if (spiker.id === 'sakusa' && ballPos === 4) {
+            correctBlockPos = 3;
+        }
+
+        const isGuessCorrect = blockPos === correctBlockPos;
+
+        let blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
         const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
 
-        // ✅ ИСПРАВЛЕНО: Защита на задней линии в зависимости от направления атаки
         let targetDefPos = 6; 
-        if (ballPos === 4) targetDefPos = 1; // Атака слева -> защита справа сзади
-        if (ballPos === 2) targetDefPos = 5; // Атака справа -> защита слева сзади
-        if (ballPos === 3) targetDefPos = 1; // Пайп -> защита на позиции 1
+        if (ballPos === 4) targetDefPos = 1; 
+        if (ballPos === 2) targetDefPos = 5; 
+        if (ballPos === 3) targetDefPos = 1; 
+        
         const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
 
-        const spikeQuirk = applyQuirks('SPIKE', spiker);
-        const blockQuirk = applyQuirks('BLOCK', blocker);
-        const digQuirk = applyQuirks('DIG', floorDefender);
+        const atkStats = getEffectiveStats(spiker, attackingTeam);
+        const blkStats = getEffectiveStats(blocker, defendingTeam);
+        const digStats = getEffectiveStats(floorDefender, defendingTeam);
+
+        const spikeQuirk = applyQuirks('SPIKE', spiker, atkStats);
+        const blockQuirk = applyQuirks('BLOCK', blocker, blkStats);
+        const digQuirk = applyQuirks('DIG', floorDefender, digStats);
 
         const d20_atk = Math.floor(Math.random() * 20) + 1;
         const d20_blk = Math.floor(Math.random() * 20) + 1;
         const d20_dig = Math.floor(Math.random() * 20) + 1;
 
-        let attackPower = spiker.stats.power + d20_atk + spikeQuirk.bonus;
+        const setterBonus = room.gameState.setterBonus || 0;
+
+        let attackPower = atkStats.power + d20_atk + spikeQuirk.bonus + setterBonus;
         
         let blockPower = 0;
         if (isGuessCorrect) {
-            blockPower = blocker.stats.block + d20_blk + 5 + blockQuirk.bonus;
+            blockPower = blkStats.block + d20_blk + 5 + blockQuirk.bonus;
         }
 
-        let digPower = floorDefender.stats.receive + d20_dig + digQuirk.bonus;
+        let digPower = digStats.receive + d20_dig + digQuirk.bonus;
 
         let quirkLog = [...spikeQuirk.log];
         if (isGuessCorrect) quirkLog.push(...blockQuirk.log);
@@ -332,11 +360,19 @@ io.on('connection', (socket) => {
         let nextPhase = 'SERVE';
         let nextTurn = null;
 
-        // ⏱️ ЗАДЕРЖКА для анимации атаки
         await delay(900);
 
-        // БИТВА
-        if (isGuessCorrect && blockPower > attackPower) {
+        // --- БИТВА ---
+        let isKillBlock = isGuessCorrect && blockPower > attackPower;
+        
+        // Хякузава иммунитет
+        if (isKillBlock && spiker.id === 'hyakuzawa') {
+            isKillBlock = false;
+            message += ` (Хякузава пробил блок!) `;
+            attackPower = Math.floor(attackPower * 0.7); 
+        }
+
+        if (isKillBlock) {
             winner = 'DEFENSE';
             message += `🧱 KILL BLOCK! ${blocker.name} закрыл атаку!`;
             details = `Блок ${blockPower} > Атака ${attackPower}`;
@@ -345,11 +381,13 @@ io.on('connection', (socket) => {
             let preMsg = '';
             
             if (isGuessCorrect) {
+                // Смягчение
                 remainingForce = Math.floor((attackPower - blockPower) / 2);
                 if (remainingForce < 0) remainingForce = 5;
                 preMsg = `🛡️ Смягчение блоком!`;
             } else {
-                remainingForce = attackPower + 5;
+                // Чистая сетка - УБРАЛИ БОНУС +5 ПО ТВОЕЙ ПРОСЬБЕ
+                remainingForce = attackPower; 
                 preMsg = `💥 ЧИСТАЯ СЕТКА!`;
             }
 
@@ -444,12 +482,9 @@ io.on('connection', (socket) => {
     });
 });
 
-// 🚀 Production-ready сервер
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
 server.listen(PORT, HOST, () => {
     console.log(`--- СЕРВЕР ЗАПУЩЕН (${PORT}) ---`);
-    console.log(`Окружение: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`Разрешенные origin: ${allowedOrigins.join(', ')}`);
 });
