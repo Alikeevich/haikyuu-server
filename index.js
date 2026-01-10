@@ -1,66 +1,490 @@
-const characters = [
-    // --- KARASUNO ---
-    { id: 'hinata', name: 'Хината Шоё', team: 'Karasuno', stats: { power: 12, receive: 7, set: 5, block: 9, serve: 10 }, img: '/assets/hinata.png', quirk: { name: "Вжух!", desc: "+5 к Атаке за счет скорости." } },
-    { id: 'kageyama', name: 'Кагеяма Тобио', team: 'Karasuno', stats: { power: 15, receive: 14, set: 20, block: 14, serve: 19 }, img: '/assets/kageyama.png', quirk: { name: "Король Площадки", desc: "Максимальный бонус к атаке спайкера (+5)." } },
-    { id: 'nishinoya', name: 'Нишиноя Ю', team: 'Karasuno', stats: { power: 6, receive: 20, set: 9, block: 2, serve: 5 }, img: '/assets/nishinoya.png', quirk: { name: "Rolling Thunder", desc: "+5 к Приему." } },
-    { id: 'tsukishima', name: 'Цукишима Кей', team: 'Karasuno', stats: { power: 11, receive: 12, set: 11, block: 17, serve: 13 }, img: '/assets/tsukishima.png', quirk: { name: "Чтение Блока", desc: "+4 к Блоку." } },
-    { id: 'daichi', name: 'Савамура Дайчи', team: 'Karasuno', stats: { power: 13, receive: 19, set: 8, block: 10, serve: 13 }, img: '/assets/daichi.png', quirk: { name: "Капитан", desc: "+2 к Приему." } },
-    { id: 'asahi', name: 'Адзумане Асахи', team: 'Karasuno', stats: { power: 19, receive: 11, set: 4, block: 12, serve: 17 }, img: '/assets/asahi.png', quirk: { name: "Ас", desc: "+3 к Атаке." } },
-    { id: 'tanaka', name: 'Танака Рюноске', team: 'Karasuno', stats: { power: 16, receive: 10, set: 5, block: 8, serve: 15 }, img: '/assets/tanaka.png', quirk: null },
-    { id: 'yamaguchi', name: 'Ямагучи Тадаши', team: 'Karasuno', stats: { power: 12, receive: 9, set: 6, block: 7, serve: 18 }, img: '/assets/yamaguchi.png', quirk: { name: "Планер", desc: "+4 к Подаче." } },
-    { id: 'ennoshita', name: 'Энношита Чикара', team: 'Karasuno', stats: { power: 11, receive: 14, set: 8, block: 9, serve: 12 }, img: '/assets/ennoshita.png', quirk: { name: "Замена", desc: "Стабильность." } },
+const express = require('express');
+const http = require('http');
+const { Server } = require("socket.io");
+const cors = require('cors');
+const characters = require('./data/characters');
 
-    // --- AOBA JOHSAI ---
-    { id: 'oikawa', name: 'Ойкава Тоору', team: 'Seijoh', stats: { power: 17, receive: 13, set: 19, block: 11, serve: 20 }, img: '/assets/oikawa.png', quirk: { name: "Великий Король", desc: "+5 к Подаче, высокий бонус паса." } },
-    { id: 'iwai', name: 'Иваизуми Хаджиме', team: 'Seijoh', stats: { power: 18, receive: 14, set: 7, block: 10, serve: 16 }, img: '/assets/iwai.png', quirk: { name: "Ас Сейджо", desc: "+2 к Атаке." } },
-    { id: 'kyotani', name: 'Кётани (Пёс)', team: 'Seijoh', stats: { power: 19, receive: 8, set: 4, block: 10, serve: 16 }, img: '/assets/kyotani.png', quirk: { name: "Острый угол", desc: "+3 Атаки, но риск аута." } },
-    { id: 'kunimi', name: 'Куними Акира', team: 'Seijoh', stats: { power: 12, receive: 15, set: 12, block: 9, serve: 14 }, img: '/assets/kunimi.png', quirk: null },
-    { id: 'kindaichi', name: 'Киндаичи Ютаро', team: 'Seijoh', stats: { power: 14, receive: 10, set: 5, block: 13, serve: 13 }, img: '/assets/kindaichi.png', quirk: null },
+const app = express();
+app.use(cors());
 
-    // --- NEKOMA ---
-    { id: 'kuroo', name: 'Куроо Тецуро', team: 'Nekoma', stats: { power: 14, receive: 16, set: 8, block: 19, serve: 16 }, img: '/assets/kuroo.png', quirk: { name: "Килл-Блок", desc: "+4 к Блоку." } },
-    { id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, img: '/assets/kenma.png', quirk: { name: "Мозг Некомы", desc: "Если в команде, все игроки Некомы получают +2 ко всем статам." } },
-    { id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', stats: { power: 8, receive: 20, set: 10, block: 2, serve: 5 }, img: '/assets/yaku.png', quirk: { name: "Страж", desc: "+4 к Приему." } },
-    { id: 'yamamoto', name: 'Ямамото Такетора', team: 'Nekoma', stats: { power: 16, receive: 15, set: 5, block: 9, serve: 14 }, img: '/assets/yamamoto.png', quirk: null },
-    { id: 'lev', name: 'Хайба Лев', team: 'Nekoma', stats: { power: 17, receive: 5, set: 3, block: 11, serve: 12 }, img: '/assets/lev.png', quirk: null },
-    { id: 'fukunaga', name: 'Фукунага Шохей', team: 'Nekoma', stats: { power: 13, receive: 14, set: 6, block: 8, serve: 14 }, img: '/assets/fukunaga.png', quirk: null },
-    { id: 'kai', name: 'Кай Нобуюки', team: 'Nekoma', stats: { power: 12, receive: 16, set: 10, block: 10, serve: 12 }, img: '/assets/kai.png', quirk: null },
-    { id: 'inuoka', name: 'Инуока Со', team: 'Nekoma', stats: { power: 13, receive: 11, set: 4, block: 12, serve: 11 }, img: '/assets/inuoka.png', quirk: null },
+const server = http.createServer(app);
 
-    // --- SHIRATORIZAWA ---
-    { id: 'ushijima', name: 'Ушиджима Вакатоши', team: 'Shiratorizawa', stats: { power: 20, receive: 13, set: 5, block: 14, serve: 19 }, img: '/assets/ushijima.png', quirk: { name: "Левша", desc: "+4 к Атаке и Подаче." } },
-    { id: 'tendo', name: 'Тендо Сатори', team: 'Shiratorizawa', stats: { power: 12, receive: 8, set: 4, block: 18, serve: 12 }, img: '/assets/tendo.png', quirk: { name: "Guess Block", desc: "Если угадал, сила блока удваивается (+10)." } },
-    { id: 'goshiki', name: 'Гошики Цутому', team: 'Shiratorizawa', stats: { power: 16, receive: 11, set: 5, block: 9, serve: 16 }, img: '/assets/goshiki.png', quirk: null },
+// 🌐 CORS для production и development
+const allowedOrigins = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "https://haikyuu-client.vercel.app",
+    process.env.CLIENT_URL,
+].filter(Boolean);
 
-    // --- INARIZAKI ---
-    { id: 'atsumu', name: 'Мия Атсуму', team: 'Inarizaki', stats: { power: 16, receive: 13, set: 19, block: 10, serve: 19 }, img: '/assets/atsumu.png', quirk: { name: "Двойной вилд", desc: "Высокий бонус паса и сильная подача." } },
-    { id: 'osamu', name: 'Мия Осаму', team: 'Inarizaki', stats: { power: 16, receive: 14, set: 16, block: 11, serve: 16 }, img: '/assets/osamu.png', quirk: null },
-    { id: 'aran', name: 'Оджиро Аран', team: 'Inarizaki', stats: { power: 19, receive: 12, set: 5, block: 11, serve: 17 }, img: '/assets/aran.png', quirk: { name: "Топ-3 Ас", desc: "+3 к Атаке." } },
-    { id: 'suna', name: 'Суна Ринтаро', team: 'Inarizaki', stats: { power: 15, receive: 9, set: 6, block: 16, serve: 14 }, img: '/assets/suna.png', quirk: { name: "Широкая атака", desc: "Сложнее заблокировать." } },
+const io = new Server(server, {
+    cors: { 
+        origin: allowedOrigins,
+        methods: ["GET", "POST"],
+        credentials: true
+    }
+});
 
-    // --- FUKURODANI ---
-    { id: 'bokuto', name: 'Бокуто Котаро', team: 'Fukurodani', stats: { power: 19, receive: 12, set: 5, block: 11, serve: 16 }, img: '/assets/bokuto.png', quirk: { name: "Эмо-Мод", desc: "Рандом: либо +8 к Атаке, либо -5." } },
-    { id: 'akaashi', name: 'Акааши Кейджи', team: 'Fukurodani', stats: { power: 11, receive: 13, set: 18, block: 10, serve: 14 }, img: '/assets/akaashi.png', quirk: { name: "Контроль", desc: "Стабильный бонус паса." } },
+let games = {};
 
-    // --- KAMOMEDAI ---
-    { id: 'hoshiumi', name: 'Хошиуми Корай', team: 'Kamomedai', stats: { power: 16, receive: 17, set: 15, block: 14, serve: 18 }, img: '/assets/hoshiumi.png', quirk: { name: "Маленький Гигант", desc: "Универсал." } },
-    { id: 'hirugami', name: 'Хиругами Сачиро', team: 'Kamomedai', stats: { power: 12, receive: 11, set: 8, block: 19, serve: 15 }, img: '/assets/hirugami.png', quirk: { name: "Неподвижный", desc: "+3 к Блоку." } },
+// Вспомогательная функция задержки
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // --- DATEKO ---
-    { id: 'aone', name: 'Аоне Таканобу', team: 'Dateko', stats: { power: 14, receive: 9, set: 4, block: 19, serve: 13 }, img: '/assets/aone.png', quirk: { name: "Железная стена", desc: "Мощный блок." } },
-    { id: 'koganegawa', name: 'Коганегава Канджи', team: 'Dateko', stats: { power: 15, receive: 7, set: 12, block: 16, serve: 11 }, img: '/assets/koganegawa.png', quirk: null },
+// --- ФУНКЦИЯ РОТАЦИИ ---
+function rotateTeam(team) {
+    team.forEach(player => {
+        if (player.position === 1) player.newPos = 6;
+        else if (player.position === 6) player.newPos = 5;
+        else if (player.position === 5) player.newPos = 4;
+        else if (player.position === 4) player.newPos = 3;
+        else if (player.position === 3) player.newPos = 2;
+        else if (player.position === 2) player.newPos = 1;
+    });
+    team.forEach(p => p.position = p.newPos);
+}
 
-    // --- ITACHIYAMA ---
-    { id: 'sakusa', name: 'Сакуса Киёми', team: 'Itachiyama', stats: { power: 18, receive: 17, set: 8, block: 12, serve: 18 }, img: '/assets/sakusa.png', quirk: { name: "Вращение", desc: "Бьет по диагонали. Принимать сложно." } },
+// --- УЧЕТ ПАССИВКИ КЕНМЫ ---
+function getEffectiveStats(player, team) {
+    let stats = { ...player.stats };
+    const hasKenma = team.some(p => p.id === 'kenma');
+    if (hasKenma && player.team === 'Nekoma') {
+        stats.power += 2;
+        stats.receive += 2;
+        stats.block += 2;
+        stats.serve += 2;
+        stats.set += 2;
+    }
+    return stats;
+}
 
-    // --- MUJINAZAKA ---
-    { id: 'kiryu', name: 'Кирью Вакацу', team: 'Mujinazaka', stats: { power: 19, receive: 13, set: 6, block: 11, serve: 17 }, img: '/assets/kiryu.png', quirk: { name: "Бэнкей", desc: "+3 к Атаке." } },
+// --- ФУНКЦИЯ КВИРКОВ ---
+function applyQuirks(actionType, player, effectiveStats) {
+    let bonus = 0;
+    let log = [];
 
-    // --- OTHERS ---
-    { id: 'hyakuzawa', name: 'Хякузава Юдай', team: 'Kakugawa', stats: { power: 17, receive: 5, set: 3, block: 12, serve: 10 }, img: '/assets/hyakuzawa.png', quirk: { name: "2 Метра", desc: "Иммунитет к Килл-Блоку." } },
-    { id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', stats: { power: 13, receive: 15, set: 7, block: 10, serve: 14 }, img: '/assets/daishou.png', quirk: { name: "Хитрость", desc: "Финты." } },
-    { id: 'takeru', name: 'Накашима Такеру', team: 'Wakutani', stats: { power: 14, receive: 14, set: 6, block: 8, serve: 13 }, img: '/assets/takeru.png', quirk: { name: "Блок-аут", desc: "Отыгрыш." } },
-    { id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', stats: { power: 16, receive: 9, set: 5, block: 8, serve: 15 }, img: '/assets/gora.png', quirk: null }
-];
+    if (!player.quirk) return { bonus, log };
 
-module.exports = characters;
+    if (actionType === 'SERVE') {
+        if (player.id === 'oikawa') { bonus += 5; log.push(`👽 Убийственная подача!`); }
+        if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Пушечная подача!`); }
+        if (player.id === 'kageyama') { bonus += 3; log.push(`👑 Подача Короля!`); }
+        if (player.id === 'atsumu') { bonus += 4; log.push(`🦊 Двойной вилд!`); }
+        if (player.id === 'yamaguchi') { bonus += 4; log.push(`🎈 Планер!`); }
+    }
+
+    if (actionType === 'SPIKE') {
+        if (player.id === 'hinata') { bonus += 5; log.push(`🍊 ВЖУХ!`); }
+        if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Мощь Ушиджимы!`); }
+        if (player.id === 'asahi') { bonus += 3; log.push(`🙏 Пробой Аса!`); }
+        if (player.id === 'aran') { bonus += 3; log.push(`🦊 Топ-3 Ас!`); }
+        if (player.id === 'kiryu') { bonus += 3; log.push(`👹 Бэнкей!`); }
+        if (player.id === 'bokuto') {
+            if (Math.random() > 0.4) {
+                bonus += 8; log.push(`🦉 ХЕЙ ХЕЙ ХЕЙ!`);
+            } else {
+                bonus -= 5; log.push(`🦉 Бокуто приуныл...`);
+            }
+        }
+    }
+
+    if (actionType === 'BLOCK') {
+        if (player.id === 'kuroo') { bonus += 4; log.push(`😼 Килл-блок!`); }
+        if (player.id === 'tsukishima') { bonus += 4; log.push(`🌙 Чтение блока!`); }
+        if (player.id === 'tendo') { bonus += 5; log.push(`👻 Guess Block!`); }
+        if (player.id === 'aone') { bonus += 5; log.push(`🛡️ Железная стена!`); }
+        if (player.id === 'hirugami') { bonus += 3; log.push(`🗿 Неподвижный!`); }
+    }
+
+    if (actionType === 'DIG') {
+        if (player.id === 'nishinoya') { bonus += 5; log.push(`⚡ ROLLING THUNDER!`); }
+        if (player.id === 'yaku') { bonus += 4; log.push(`🐈 Страж Яку!`); }
+        if (player.id === 'daichi') { bonus += 2; log.push(`🛡️ Капитан тащит!`); }
+    }
+
+    return { bonus, log };
+}
+
+io.on('connection', (socket) => {
+    console.log(`[+] Игрок подключился: ${socket.id}`);
+
+    // 1. ЛОББИ
+    socket.on('create_game', () => {
+        const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
+        games[roomId] = {
+            players: [socket.id],
+            team1: [],
+            team2: [],
+            state: 'lobby',
+            bannedCharacters: []
+        };
+        socket.join(roomId);
+        socket.emit('game_created', roomId);
+    });
+
+    socket.on('join_game', (roomId) => {
+        const room = games[roomId];
+        if (room && room.players.length < 2) {
+            room.players.push(socket.id);
+            socket.join(roomId);
+            io.to(roomId).emit('game_started', { 
+                start: true, 
+                players: room.players,
+                allCharacters: characters 
+            });
+            room.draftTurn = room.players[Math.random() < 0.5 ? 0 : 1];
+            io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
+        } else {
+            socket.emit('error_message', 'Ошибка входа');
+        }
+    });
+
+    socket.on('character_picked', ({ roomId, charId }) => {
+        const room = games[roomId];
+        if (!room) return;
+        if (room.draftTurn && room.draftTurn !== socket.id) return;
+
+        if (!room.bannedCharacters.includes(charId)) {
+            room.bannedCharacters.push(charId);
+            io.to(roomId).emit('banned_characters', room.bannedCharacters);
+            const otherId = room.players.find(id => id !== socket.id);
+            room.draftTurn = otherId;
+            io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
+        }
+    });
+
+    // 2. ДРАФТ
+    socket.on('team_ready', ({ roomId, team }) => {
+        const room = games[roomId];
+        if (!room) return;
+
+        if (socket.id === room.players[0]) room.team1 = team;
+        else room.team2 = team;
+
+        if (room.team1.length === 6 && room.team2.length === 6) {
+            const firstServerIndex = Math.random() < 0.5 ? 0 : 1;
+            const servingPlayerId = room.players[firstServerIndex];
+            
+            room.gameState = {
+                phase: 'SERVE', 
+                turn: servingPlayerId, 
+                score: { team1: 0, team2: 0 },
+                servingTeam: firstServerIndex === 0 ? 'team1' : 'team2',
+                setterBonus: 0
+            };
+
+            room.draftTurn = null;
+            io.to(roomId).emit('draft_finished');
+
+            io.to(roomId).emit('match_start', { 
+                team1: room.team1, 
+                team2: room.team2,
+                players: room.players,
+                turn: servingPlayerId,
+                score: room.gameState.score
+            });
+        }
+    });
+
+    // 3. ПОДАЧА
+    socket.on('action_serve', async ({ roomId }) => {
+        const room = games[roomId];
+        if (!room || room.gameState.turn !== socket.id) return;
+
+        console.log(`[SERVE] Игрок ${socket.id} подает`);
+
+        const isTeam1 = room.players[0] === socket.id;
+        const attackingTeam = isTeam1 ? room.team1 : room.team2;
+        const defendingTeam = isTeam1 ? room.team2 : room.team1;
+
+        const serverPlayer = attackingTeam.find(p => p.position === 1);
+        const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
+        const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
+
+        const sStats = getEffectiveStats(serverPlayer, attackingTeam);
+        const rStats = getEffectiveStats(receiver, defendingTeam);
+
+        const serveQuirk = applyQuirks('SERVE', serverPlayer, sStats);
+        const digQuirk = applyQuirks('DIG', receiver, rStats);
+
+        const attackRoll = Math.floor(Math.random() * 20) + 1;
+        const defenseRoll = Math.floor(Math.random() * 20) + 1;
+        
+        // ВАЖНО: Используем sStats.serve (стат Подачи), а не Power
+        const totalAttack = sStats.serve + attackRoll + serveQuirk.bonus;
+        const totalDefense = rStats.receive + defenseRoll + digQuirk.bonus;
+        
+        const diff = totalDefense - totalAttack;
+
+        let message = '';
+        let quirkMsg = [...serveQuirk.log, ...digQuirk.log].join(' | ');
+        if (quirkMsg) message = `[${quirkMsg}] `;
+        
+        await delay(1200);
+        
+        if (diff < -5) {
+            message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
+            if (isTeam1) room.gameState.score.team1++;
+            else room.gameState.score.team2++;
+            room.gameState.phase = 'SERVE';
+            room.gameState.turn = socket.id;
+        } else {
+            if (diff < 0) message += `⚠️ Тяжелый прием от ${receiver.name}...`;
+            else message += `🏐 Отличный прием! ${receiver.name} поднял мяч.`;
+            room.gameState.phase = 'SET';
+            room.gameState.turn = room.players.find(id => id !== socket.id);
+        }
+
+        io.to(roomId).emit('serve_result', {
+            message,
+            score: room.gameState.score,
+            nextTurn: room.gameState.turn,
+            phase: room.gameState.phase,
+            serverId: socket.id
+        });
+    });
+
+    // 4. ПАС
+    socket.on('action_set', async ({ roomId, targetPos }) => {
+        const room = games[roomId];
+        if (!room) return;
+
+        const setterId = socket.id;
+        const isTeam1 = room.players[0] === socket.id;
+        const myTeam = isTeam1 ? room.team1 : room.team2;
+        
+        const setterPlayer = myTeam.find(p => p.position === 3) || myTeam[0];
+        const sStats = getEffectiveStats(setterPlayer, myTeam);
+        
+        // Бонус от качества паса
+        const setterBonus = Math.floor(sStats.set / 4);
+        room.gameState.setterBonus = setterBonus;
+
+        room.gameState.ballPosition = targetPos;
+        room.gameState.phase = 'BLOCK';
+        
+        const defenderId = room.players.find(id => id !== socket.id);
+        room.gameState.turn = defenderId;
+
+        let positionName = "";
+        if (targetPos === 4) positionName = "ЛЕВЫЙ ФЛАНГ";
+        if (targetPos === 3) positionName = "ПАЙП (Задняя линия)";
+        if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
+
+        await delay(1000);
+
+        socket.emit('set_result', {
+            message: `Передача на ${positionName} (Бонус +${setterBonus})`,
+            phase: 'BLOCK',
+            nextTurn: defenderId,
+            targetPos: targetPos,
+            setterId: socket.id
+        });
+
+        socket.to(roomId).emit('set_made', {
+            message: `Передача совершена`,
+            phase: 'BLOCK',
+            nextTurn: defenderId,
+            setterId: socket.id
+        });
+    });
+
+    // 5. БЛОК
+    socket.on('action_block', async ({ roomId, blockPos }) => {
+        const room = games[roomId];
+        if (!room) return;
+
+        const ballPos = room.gameState.ballPosition;
+        let attackPosition = ballPos;
+        if (ballPos === 3) attackPosition = 6; 
+
+        // --- ЛОГИКА БЛОКА ---
+        let correctBlockPos = 3;
+        if (ballPos === 4) correctBlockPos = 2;
+        if (ballPos === 2) correctBlockPos = 4;
+        if (ballPos === 3) correctBlockPos = 3; 
+        
+        const defenderId = socket.id;
+        const isTeam1Defending = room.players[0] === defenderId;
+        const defendingTeam = isTeam1Defending ? room.team1 : room.team2;
+        const attackingTeam = isTeam1Defending ? room.team2 : room.team1;
+
+        const spiker = attackingTeam.find(p => p.position === attackPosition) || attackingTeam[0];
+        
+        // Логика Сакусы
+        if (spiker.id === 'sakusa' && ballPos === 4) {
+            correctBlockPos = 3;
+        }
+
+        const isGuessCorrect = blockPos === correctBlockPos;
+
+        let blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
+        const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
+
+        let targetDefPos = 6; 
+        if (ballPos === 4) targetDefPos = 1; 
+        if (ballPos === 2) targetDefPos = 5; 
+        if (ballPos === 3) targetDefPos = 1; 
+        
+        const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
+
+        const atkStats = getEffectiveStats(spiker, attackingTeam);
+        const blkStats = getEffectiveStats(blocker, defendingTeam);
+        const digStats = getEffectiveStats(floorDefender, defendingTeam);
+
+        const spikeQuirk = applyQuirks('SPIKE', spiker, atkStats);
+        const blockQuirk = applyQuirks('BLOCK', blocker, blkStats);
+        const digQuirk = applyQuirks('DIG', floorDefender, digStats);
+
+        const d20_atk = Math.floor(Math.random() * 20) + 1;
+        const d20_blk = Math.floor(Math.random() * 20) + 1;
+        const d20_dig = Math.floor(Math.random() * 20) + 1;
+
+        const setterBonus = room.gameState.setterBonus || 0;
+
+        let attackPower = atkStats.power + d20_atk + spikeQuirk.bonus + setterBonus;
+        
+        let blockPower = 0;
+        if (isGuessCorrect) {
+            blockPower = blkStats.block + d20_blk + 5 + blockQuirk.bonus;
+        }
+
+        let digPower = digStats.receive + d20_dig + digQuirk.bonus;
+
+        let quirkLog = [...spikeQuirk.log];
+        if (isGuessCorrect) quirkLog.push(...blockQuirk.log);
+        quirkLog.push(...digQuirk.log);
+        
+        let message = quirkLog.length ? `[${quirkLog.join(' | ')}] ` : "";
+        let winner = null;
+        let details = '';
+        let nextPhase = 'SERVE';
+        let nextTurn = null;
+
+        await delay(900);
+
+        // --- БИТВА ---
+        let isKillBlock = isGuessCorrect && blockPower > attackPower;
+        
+        // Хякузава иммунитет
+        if (isKillBlock && spiker.id === 'hyakuzawa') {
+            isKillBlock = false;
+            message += ` (Хякузава пробил блок!) `;
+            attackPower = Math.floor(attackPower * 0.7); 
+        }
+
+        if (isKillBlock) {
+            winner = 'DEFENSE';
+            message += `🧱 KILL BLOCK! ${blocker.name} закрыл атаку!`;
+            details = `Блок ${blockPower} > Атака ${attackPower}`;
+        } else {
+            let remainingForce = attackPower;
+            let preMsg = '';
+            
+            if (isGuessCorrect) {
+                // Смягчение
+                remainingForce = Math.floor((attackPower - blockPower) / 2);
+                if (remainingForce < 0) remainingForce = 5;
+                preMsg = `🛡️ Смягчение блоком!`;
+            } else {
+                // Чистая сетка - УБРАЛИ БОНУС +5 ПО ТВОЕЙ ПРОСЬБЕ
+                remainingForce = attackPower; 
+                preMsg = `💥 ЧИСТАЯ СЕТКА!`;
+            }
+
+            if (digPower >= remainingForce) {
+                const isCounterAttack = Math.random() < 0.5;
+                if (isCounterAttack) {
+                    message += `${preMsg} ${floorDefender.name} ТАЩИТ! Переход в атаку!`;
+                    nextPhase = 'SET';
+                    nextTurn = defenderId;
+                } else {
+                    message += `${preMsg} ${floorDefender.name} поднял, но мяч перелетел сетку!`;
+                    nextPhase = 'SET';
+                    nextTurn = room.players.find(id => id !== defenderId);
+                }
+                details = `Прием ${digPower} > Удар ${remainingForce}`;
+                winner = null; 
+            } else {
+                winner = 'ATTACK';
+                message += `🏐 ГОЛ! ${spiker.name} пробил защиту!`;
+                details = `Удар ${remainingForce} > Прием ${digPower}`;
+            }
+        }
+
+        let rotMessage = '';
+        if (winner) {
+            nextPhase = 'SERVE';
+            
+            if (winner === 'ATTACK') {
+                if (isTeam1Defending) {
+                    room.gameState.score.team2++;
+                    if (room.gameState.servingTeam === 'team1') {
+                        rotateTeam(room.team2);
+                        rotMessage = ' (Переход подачи!)';
+                        room.gameState.servingTeam = 'team2';
+                    }
+                    nextTurn = room.players[1];
+                } else {
+                    room.gameState.score.team1++;
+                    if (room.gameState.servingTeam === 'team2') {
+                        rotateTeam(room.team1);
+                        rotMessage = ' (Переход подачи!)';
+                        room.gameState.servingTeam = 'team1';
+                    }
+                    nextTurn = room.players[0];
+                }
+            } else {
+                if (isTeam1Defending) {
+                    room.gameState.score.team1++;
+                    if (room.gameState.servingTeam === 'team2') {
+                        rotateTeam(room.team1);
+                        rotMessage = ' (Переход подачи!)';
+                        room.gameState.servingTeam = 'team1';
+                    }
+                    nextTurn = room.players[0];
+                } else {
+                    room.gameState.score.team2++;
+                    if (room.gameState.servingTeam === 'team1') {
+                        rotateTeam(room.team2);
+                        rotMessage = ' (Переход подачи!)';
+                        room.gameState.servingTeam = 'team2';
+                    }
+                    nextTurn = room.players[1];
+                }
+            }
+        } 
+        
+        room.gameState.turn = nextTurn;
+        room.gameState.phase = nextPhase;
+
+        const s1 = room.gameState.score.team1;
+        const s2 = room.gameState.score.team2;
+        
+        if (winner && (s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
+            io.to(roomId).emit('game_over', {
+                message: `🏆 ПОБЕДА! Счет ${s1} : ${s2}`
+            });
+        } else {
+            io.to(roomId).emit('spike_result', {
+                message: message + rotMessage,
+                score: room.gameState.score,
+                nextTurn: nextTurn,
+                phase: nextPhase,
+                details: details,
+                team1: room.team1, 
+                team2: room.team2
+            });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('[-] Игрок отключился');
+    });
+});
+
+const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '0.0.0.0';
+
+server.listen(PORT, HOST, () => {
+    console.log(`--- СЕРВЕР ЗАПУЩЕН (${PORT}) ---`);
+});
