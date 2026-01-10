@@ -270,7 +270,13 @@ io.on('connection', (socket) => {
             nextTurn: room.gameState.turn,
             phase: room.gameState.phase,
             serverId: socket.id,
-            isCritical: isCritical // <--- ОТПРАВЛЯЕМ ФЛАГ НА КЛИЕНТ
+            isCritical: isCritical, // Для тряски
+            // НОВЫЕ ПОЛЯ ДЛЯ ВИЗУАЛА:
+            attackerId: serverPlayer.id,
+            receiverId: receiver.id,
+            valAtk: totalAttack,
+            valDef: totalDefense,
+            winSide: diff < -5 ? 'ATTACK' : 'DEFENSE' // Кто победил в микро-стычке
         });
     });
 
@@ -538,7 +544,13 @@ io.on('connection', (socket) => {
                 details: details,
                 team1: room.team1, 
                 team2: room.team2,
-                isCritical: isCritical
+                isCritical: isCritical, // Для тряски
+                // НОВЫЕ ПОЛЯ ДЛЯ ВИЗУАЛА:
+                attackerId: spiker.id,
+                receiverId: isGuessCorrect ? blocker.id : floorDefender.id, // Либо блокер, либо защитник
+                valAtk: attackPower, // Или remainingForce, если блок пробит
+                valDef: isGuessCorrect && blockPower > attackPower ? blockPower : digPower,
+                winSide: winner // 'ATTACK' или 'DEFENSE'
             });
         }
     });
