@@ -2,7 +2,7 @@ const characters = [
     // --- KARASUNO ---
     { id: 'hinata', name: 'Хината Шоё', team: 'Karasuno', stats: { power: 12, receive: 7, set: 5, block: 9, serve: 10 }, img: '/assets/hinata.png', quirk: { name: "Вжух!", desc: "+5 к Атаке за счет скорости." } },
     { id: 'kageyama', name: 'Кагеяма Тобио', team: 'Karasuno', stats: { power: 15, receive: 14, set: 20, block: 14, serve: 19 }, img: '/assets/kageyama.png', quirk: { name: "Король Площадки", desc: "Максимальный бонус к атаке спайкера (+5)." } },
-    { id: 'nishinoya', name: 'Нишиноя Ю', team: 'Karasuno', stats: { power: 6, receive: 20, set: 9, block: 3, serve: 5 }, img: '/assets/nishinoya.png', quirk: { name: "Rolling Thunder", desc: "+5 к Приему." } },
+    { id: 'nishinoya', name: 'Нишиноя Ю', team: 'Karasuno', stats: { power: 6, receive: 20, set: 9, block: 2, serve: 5 }, img: '/assets/nishinoya.png', quirk: { name: "Rolling Thunder", desc: "+5 к Приему." } },
     { id: 'tsukishima', name: 'Цукишима Кей', team: 'Karasuno', stats: { power: 11, receive: 12, set: 11, block: 17, serve: 13 }, img: '/assets/tsukishima.png', quirk: { name: "Чтение Блока", desc: "+4 к Блоку." } },
     { id: 'daichi', name: 'Савамура Дайчи', team: 'Karasuno', stats: { power: 13, receive: 19, set: 8, block: 10, serve: 13 }, img: '/assets/daichi.png', quirk: { name: "Капитан", desc: "+2 к Приему." } },
     { id: 'asahi', name: 'Адзумане Асахи', team: 'Karasuno', stats: { power: 19, receive: 11, set: 4, block: 12, serve: 17 }, img: '/assets/asahi.png', quirk: { name: "Ас", desc: "+3 к Атаке." } },
@@ -20,7 +20,7 @@ const characters = [
     // --- NEKOMA ---
     { id: 'kuroo', name: 'Куроо Тецуро', team: 'Nekoma', stats: { power: 14, receive: 16, set: 8, block: 19, serve: 16 }, img: '/assets/kuroo.png', quirk: { name: "Килл-Блок", desc: "+4 к Блоку." } },
     { id: 'kenma', name: 'Козуме Кенма', team: 'Nekoma', stats: { power: 6, receive: 8, set: 19, block: 5, serve: 12 }, img: '/assets/kenma.png', quirk: { name: "Мозг Некомы", desc: "Если в команде, все игроки Некомы получают +2 ко всем статам." } },
-    { id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', stats: { power: 8, receive: 20, set: 10, block: 4, serve: 5 }, img: '/assets/yaku.png', quirk: { name: "Страж", desc: "+4 к Приему." } },
+    { id: 'yaku', name: 'Яку Мориске', team: 'Nekoma', stats: { power: 8, receive: 20, set: 10, block: 2, serve: 5 }, img: '/assets/yaku.png', quirk: { name: "Страж", desc: "+4 к Приему." } },
     { id: 'yamamoto', name: 'Ямамото Такетора', team: 'Nekoma', stats: { power: 16, receive: 15, set: 5, block: 9, serve: 14 }, img: '/assets/yamamoto.png', quirk: null },
     { id: 'lev', name: 'Хайба Лев', team: 'Nekoma', stats: { power: 17, receive: 5, set: 3, block: 11, serve: 12 }, img: '/assets/lev.png', quirk: null },
     { id: 'fukunaga', name: 'Фукунага Шохей', team: 'Nekoma', stats: { power: 13, receive: 14, set: 6, block: 8, serve: 14 }, img: '/assets/fukunaga.png', quirk: null },

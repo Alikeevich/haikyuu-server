@@ -169,7 +169,9 @@ io.on('connection', (socket) => {
                 turn: servingPlayerId, 
                 score: { team1: 0, team2: 0 },
                 servingTeam: firstServerIndex === 0 ? 'team1' : 'team2',
-                setterBonus: 0
+                setterBonus: 0,
+                lastServerId: null,
+                serveStreak: 0
             };
 
             room.draftTurn = null;
@@ -185,7 +187,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // 3. ПОДАЧА
+// 3. ПОДАЧА + ПРИВЫКАНИЕ
     socket.on('action_serve', async ({ roomId }) => {
         const room = games[roomId];
         if (!room || room.gameState.turn !== socket.id) return;
@@ -200,6 +202,21 @@ io.on('connection', (socket) => {
         const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
         const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
 
+        // --- ЛОГИКА ПРИВЫКАНИЯ (ADAPTATION) ---
+        if (room.gameState.lastServerId === serverPlayer.id) {
+            // Если подает тот же самый игрок
+            room.gameState.serveStreak++;
+        } else {
+            // Если подающий сменился (или начало игры)
+            room.gameState.lastServerId = serverPlayer.id;
+            room.gameState.serveStreak = 0;
+        }
+
+        // Штраф растет с каждой следующей подачей подряд
+        // 1-я: 0, 2-я: -3, 3-я: -6, 4-я: -9
+        const adaptationPenalty = room.gameState.serveStreak * 3;
+
+        // --- СТАТЫ И КВИРКИ ---
         const sStats = getEffectiveStats(serverPlayer, attackingTeam);
         const rStats = getEffectiveStats(receiver, defendingTeam);
 
@@ -209,27 +226,43 @@ io.on('connection', (socket) => {
         const attackRoll = Math.floor(Math.random() * 20) + 1;
         const defenseRoll = Math.floor(Math.random() * 20) + 1;
         
-        // ВАЖНО: Используем sStats.serve (стат Подачи), а не Power
-        const totalAttack = sStats.serve + attackRoll + serveQuirk.bonus;
+        // РАСЧЕТ СИЛЫ С УЧЕТОМ ШТРАФА
+        let totalAttack = sStats.serve + attackRoll + serveQuirk.bonus - adaptationPenalty;
+        
+        // Защита от отрицательных чисел (хотя в формуле diff это не критично, но для красоты)
+        if (totalAttack < 1) totalAttack = 1;
+
         const totalDefense = rStats.receive + defenseRoll + digQuirk.bonus;
         
         const diff = totalDefense - totalAttack;
 
+        // --- ФОРМИРОВАНИЕ СООБЩЕНИЯ ---
         let message = '';
-        let quirkMsg = [...serveQuirk.log, ...digQuirk.log].join(' | ');
-        if (quirkMsg) message = `[${quirkMsg}] `;
+        let quirkMsg = [...serveQuirk.log, ...digQuirk.log];
+        
+        // Добавляем инфу о привыкании в лог, если штраф есть
+        if (adaptationPenalty > 0) {
+            quirkMsg.push(`📉 Привыкание: -${adaptationPenalty}`);
+        }
+        
+        if (quirkMsg.length > 0) message = `[${quirkMsg.join(' | ')}] `;
         
         await delay(1200);
         
+        // --- РЕЗУЛЬТАТ ---
         if (diff < -5) {
             message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
             if (isTeam1) room.gameState.score.team1++;
             else room.gameState.score.team2++;
+            
+            // Если эйс - подающий остается тот же, стрик увеличится в следующий раз
             room.gameState.phase = 'SERVE';
             room.gameState.turn = socket.id;
         } else {
             if (diff < 0) message += `⚠️ Тяжелый прием от ${receiver.name}...`;
             else message += `🏐 Отличный прием! ${receiver.name} поднял мяч.`;
+            
+            // Смена владения - стрик сбросится при следующей подаче (так как lastServerId сменится)
             room.gameState.phase = 'SET';
             room.gameState.turn = room.players.find(id => id !== socket.id);
         }
