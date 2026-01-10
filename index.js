@@ -533,7 +533,8 @@ io.on('connection', (socket) => {
         io.to(roomId).emit('game_started', { 
             start: true, 
             players: [socket.id, 'AI'],
-            allCharacters: characters 
+            allCharacters: characters,
+            roomId: roomId
         });
         
         games[roomId].draftTurn = socket.id; // Игрок начинает драфт
@@ -562,7 +563,8 @@ io.on('connection', (socket) => {
             io.to(roomId).emit('game_started', { 
                 start: true, 
                 players: room.players,
-                allCharacters: characters 
+                allCharacters: characters,
+                roomId: roomId 
             });
             room.draftTurn = room.players[Math.random() < 0.5 ? 0 : 1];
             io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
