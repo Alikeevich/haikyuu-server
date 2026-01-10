@@ -110,6 +110,10 @@ io.on('connection', (socket) => {
                 players: room.players,
                 allCharacters: characters 
             });
+
+            // Жребий: кто первый выбирает в драфте
+            room.draftTurn = room.players[Math.random() < 0.5 ? 0 : 1];
+            io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
         } else {
             socket.emit('error_message', 'Ошибка входа');
         }
@@ -119,11 +123,23 @@ io.on('connection', (socket) => {
         const room = games[roomId];
         if (!room) return;
 
-        if (!room.bannedCharacters.includes(charId)) {
-            room.bannedCharacters.push(charId);
+        // Проверяем очередь драфта
+        if (room.draftTurn && room.draftTurn !== socket.id) {
+            socket.emit('error_message', 'Сейчас не ваш ход в драфте');
+            return;
         }
 
-        io.to(roomId).emit('banned_characters', room.bannedCharacters);
+        if (!room.bannedCharacters.includes(charId)) {
+            room.bannedCharacters.push(charId);
+            io.to(roomId).emit('banned_characters', room.bannedCharacters);
+
+            // Передаём ход другому игроку
+            const otherId = room.players.find(id => id !== socket.id);
+            room.draftTurn = otherId;
+            io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
+        } else {
+            socket.emit('error_message', 'Этот персонаж уже выбран');
+        }
     });
 
     // 2. ДРАФТ
@@ -144,6 +160,10 @@ io.on('connection', (socket) => {
                 score: { team1: 0, team2: 0 },
                 servingTeam: firstServerIndex === 0 ? 'team1' : 'team2'
             };
+
+            // Завершаем драфт
+            room.draftTurn = null;
+            io.to(roomId).emit('draft_finished');
 
             io.to(roomId).emit('match_start', { 
                 team1: room.team1, 
@@ -176,7 +196,7 @@ io.on('connection', (socket) => {
         const attackRoll = Math.floor(Math.random() * 20) + 1;
         const defenseRoll = Math.floor(Math.random() * 20) + 1;
         
-        const totalAttack = serverPlayer.stats.power + attackRoll + serveQuirk.bonus;
+        const totalAttack = serverPlayer.stats.serve + attackRoll + serveQuirk.bonus;
         const totalDefense = receiver.stats.receive + defenseRoll + digQuirk.bonus;
         
         const diff = totalDefense - totalAttack;
@@ -207,7 +227,8 @@ io.on('connection', (socket) => {
             message,
             score: room.gameState.score,
             nextTurn: room.gameState.turn,
-            phase: room.gameState.phase
+            phase: room.gameState.phase,
+            serverId: socket.id
         });
     });
 
@@ -231,12 +252,20 @@ io.on('connection', (socket) => {
         // ⏱️ ЗАДЕРЖКА для анимации паса
         await delay(1000);
 
-        // ✅ ИСПРАВЛЕНО: Отправляем targetPos обеим командам
-        io.to(roomId).emit('set_result', {
+        // Отправляем цель только сеттеру, а оппоненту — уведомление без цели
+        socket.emit('set_result', {
             message: `Передача на ${positionName}`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            targetPos: targetPos // Теперь обе команды знают куда полетел мяч
+            targetPos: targetPos,
+            setterId: socket.id
+        });
+
+        socket.to(roomId).emit('set_made', {
+            message: `Передача совершена`,
+            phase: 'BLOCK',
+            nextTurn: defenderId,
+            setterId: socket.id
         });
     });
 
