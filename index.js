@@ -2,6 +2,8 @@ const express = require('express');
 const http = require('http');
 const { Server } = require("socket.io");
 const cors = require('cors');
+
+// Убедись, что файл ./data/characters.js существует!
 const characters = require('./data/characters');
 
 const app = express();
@@ -26,6 +28,7 @@ const io = new Server(server, {
 
 let games = {};
 
+// Утилита задержки
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 function rotateTeam(team) {
@@ -42,6 +45,7 @@ function rotateTeam(team) {
 
 function getEffectiveStats(player, team) {
     let stats = { ...player.stats };
+    // Пример синергии (Кенма + Некома)
     const hasKenma = team.some(p => p.id === 'kenma');
     if (hasKenma && player.team === 'Nekoma') {
         stats.power += 2;
@@ -71,8 +75,6 @@ function applyQuirks(actionType, player, effectiveStats) {
         if (player.id === 'hinata') { bonus += 5; log.push(`🍊 ВЖУХ!`); }
         if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Мощь Ушиджимы!`); }
         if (player.id === 'asahi') { bonus += 3; log.push(`🙏 Пробой Аса!`); }
-        if (player.id === 'aran') { bonus += 3; log.push(`🦊 Топ-3 Ас!`); }
-        if (player.id === 'kiryu') { bonus += 3; log.push(`👹 Бэнкей!`); }
         if (player.id === 'bokuto') {
             if (Math.random() > 0.4) {
                 bonus += 8; log.push(`🦉 ХЕЙ ХЕЙ ХЕЙ!`);
@@ -87,7 +89,6 @@ function applyQuirks(actionType, player, effectiveStats) {
         if (player.id === 'tsukishima') { bonus += 4; log.push(`🌙 Чтение блока!`); }
         if (player.id === 'tendo') { bonus += 5; log.push(`👻 Guess Block!`); }
         if (player.id === 'aone') { bonus += 5; log.push(`🛡️ Железная стена!`); }
-        if (player.id === 'hirugami') { bonus += 3; log.push(`🗿 Неподвижный!`); }
     }
 
     if (actionType === 'DIG') {
@@ -101,27 +102,22 @@ function applyQuirks(actionType, player, effectiveStats) {
 
 // 🤖 ========== ЛОГИКА ИИ ========== 🤖
 
-// ИИ выбирает команду
 function aiDraftTeam(bannedIds = []) {
     const available = characters.filter(c => !bannedIds.includes(c.id));
     const shuffled = [...available].sort(() => 0.5 - Math.random());
-    
     return shuffled.slice(0, 6).map((char, index) => ({
         ...char,
         position: index + 1
     }));
 }
 
-// ИИ выбирает позицию для паса
 function aiChooseSetPosition(room) {
     const positions = [2, 3, 4];
     return positions[Math.floor(Math.random() * positions.length)];
 }
 
-// ИИ выбирает позицию для блока (умный выбор)
 function aiChooseBlockPosition(room) {
     const ballPos = room.gameState.ballPosition;
-    
     // 70% шанс угадать правильно
     if (Math.random() < 0.7) {
         let correctBlockPos = 3;
@@ -130,15 +126,15 @@ function aiChooseBlockPosition(room) {
         if (ballPos === 3) correctBlockPos = 3;
         return correctBlockPos;
     }
-    
     // 30% ошибается
     const positions = [2, 3, 4];
     return positions[Math.floor(Math.random() * positions.length)];
 }
 
-// ИИ делает действие с задержкой (чтобы выглядело естественно)
+// ИИ делает действие
 async function aiMakeMove(roomId, room, io) {
-    await delay(1500 + Math.random() * 1000); // Задержка 1.5-2.5 сек
+    // Длинная задержка для плавности
+    await delay(2000 + Math.random() * 1000);
     
     if (!room.isAI || room.gameState.turn !== 'AI') return;
     
@@ -167,9 +163,12 @@ async function handleServe(roomId, room, playerId, io) {
     const defendingTeam = isTeam1 ? room.team2 : room.team1;
 
     const serverPlayer = attackingTeam.find(p => p.position === 1);
+    
+    // Определяем жертву (принимающего)
     const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
     const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
 
+    // Пенальти за серию подач
     if (room.gameState.lastServerId === serverPlayer.id) {
         room.gameState.serveStreak++;
     } else {
@@ -187,11 +186,11 @@ async function handleServe(roomId, room, playerId, io) {
     const attackRoll = Math.floor(Math.random() * 20) + 1;
     const defenseRoll = Math.floor(Math.random() * 20) + 1;
     
+    // ВЫЧИТАЕМ PENALTY ИЗ АТАКИ
     let totalAttack = sStats.serve + attackRoll + serveQuirk.bonus - adaptationPenalty;
     if (totalAttack < 1) totalAttack = 1;
 
     const totalDefense = rStats.receive + defenseRoll + digQuirk.bonus;
-    
     const diff = totalDefense - totalAttack;
 
     let message = '';
@@ -200,8 +199,10 @@ async function handleServe(roomId, room, playerId, io) {
     if (quirkMsg.length > 0) message = `[${quirkMsg.join(' | ')}] `;
     
     let isCritical = false;
+    let isBadReception = false;
 
-    await delay(1200);
+    // Задержка анимации подачи
+    await delay(1000);
     
     if (diff < -5) {
         if (diff < -10) {
@@ -217,8 +218,14 @@ async function handleServe(roomId, room, playerId, io) {
         room.gameState.phase = 'SERVE';
         room.gameState.turn = playerId;
     } else {
-        if (diff < 0) message += `⚠️ Тяжелый прием от ${receiver.name}...`;
-        else message += `🏐 Отличный прием! ${receiver.name} поднял мяч.`;
+        // Мяч поднят
+        if (diff < 0) {
+            message += `⚠️ Тяжелый прием от ${receiver.name}...`;
+            isBadReception = true; 
+        } else {
+            message += `🏐 Отличный довод! ${receiver.name} -> Связующий.`;
+            isBadReception = false;
+        }
         
         room.gameState.phase = 'SET';
         room.gameState.turn = room.players.find(id => id !== playerId);
@@ -229,16 +236,15 @@ async function handleServe(roomId, room, playerId, io) {
         score: room.gameState.score,
         nextTurn: room.gameState.turn,
         phase: room.gameState.phase,
-        serverId: playerId,
-        isCritical: isCritical,
+        serverId: serverPlayer.id, // Character ID
         attackerId: serverPlayer.id,
-        receiverId: receiver.id,
+        receiverId: receiver.id, // ID для полета мяча
         valAtk: totalAttack,
         valDef: totalDefense,
+        isBadReception: isBadReception,
         winSide: diff < -5 ? 'ATTACK' : 'DEFENSE'
     });
 
-    // Если следующий ход ИИ
     if (room.isAI && room.gameState.turn === 'AI') {
         aiMakeMove(roomId, room, io);
     }
@@ -248,13 +254,14 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     const isTeam1 = room.players[0] === playerId;
     const myTeam = isTeam1 ? room.team1 : room.team2;
     
+    // Находим персонажа-связующего (Тот, кто на позиции 3)
     const setterPlayer = myTeam.find(p => p.position === 3) || myTeam[0];
     const sStats = getEffectiveStats(setterPlayer, myTeam);
     
     const setterBonus = Math.floor(sStats.set / 4);
     room.gameState.setterBonus = setterBonus;
 
-    room.gameState.ballPosition = targetPos;
+    room.gameState.ballPosition = targetPos; 
     room.gameState.phase = 'BLOCK';
     
     const defenderId = room.players.find(id => id !== playerId);
@@ -265,46 +272,46 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     if (targetPos === 3) positionName = "ПАЙП (Задняя линия)";
     if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
 
-    await delay(1000);
+    // Задержка анимации паса
+    await delay(1200);
 
-    // Отправляем детальную инфу игроку, который делает пас
+    // ОТПРАВЛЯЕМ ID ПЕРСОНАЖА (setterPlayer.id), А НЕ СОКЕТА (playerId)
     if (playerId !== 'AI' && socket) {
         socket.emit('set_result', {
-            message: `Передача на ${positionName} (Бонус +${setterBonus})`,
+            message: `Вы отдали пас на ${positionName} (Бонус +${setterBonus})`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            targetPos: targetPos,
-            setterId: playerId
+            targetPos: targetPos, 
+            setterId: setterPlayer.id 
         });
 
-        // Сопернику отправляем общую инфу (без targetPos)
         socket.to(roomId).emit('set_made', {
-            message: `Передача совершена`,
+            message: `Связующий соперника сделал передачу!`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            setterId: playerId
+            setterId: setterPlayer.id 
         });
     } else if (playerId === 'AI') {
-        // ИИ делает пас - отправляем только игроку (без targetPos)
         io.to(roomId).emit('set_made', {
-            message: `Передача совершена`,
+            message: `Компьютер сделал передачу!`,
             phase: 'BLOCK',
             nextTurn: defenderId,
             setterId: 'AI'
         });
     }
 
-    // Если следующий ход ИИ
     if (room.isAI && room.gameState.turn === 'AI') {
         aiMakeMove(roomId, room, io);
     }
 }
 
 async function handleBlock(roomId, room, playerId, blockPos, io) {
-    const ballPos = room.gameState.ballPosition;
+    const ballPos = room.gameState.ballPosition; 
+    
     let attackPosition = ballPos;
     if (ballPos === 3) attackPosition = 6; 
 
+    // Где должен быть блок
     let correctBlockPos = 3;
     if (ballPos === 4) correctBlockPos = 2;
     if (ballPos === 2) correctBlockPos = 4;
@@ -315,24 +322,22 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     const defendingTeam = isTeam1Defending ? room.team1 : room.team2;
     const attackingTeam = isTeam1Defending ? room.team2 : room.team1;
 
-    const spiker = attackingTeam.find(p => p.position === attackPosition) || attackingTeam[0];
-    
-    if (spiker.id === 'sakusa' && ballPos === 4) {
-        correctBlockPos = 3;
-    }
-
+    // Участники
+    const spiker = attackingTeam.find(p => p.position === attackPosition) 
+                    || attackingTeam.find(p => p.position === 4) 
+                    || attackingTeam.find(p => p.position === 2) 
+                    || attackingTeam[0];
     const isGuessCorrect = blockPos === correctBlockPos;
-
-    let blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
+    const blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
     const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
 
     let targetDefPos = 6; 
     if (ballPos === 4) targetDefPos = 1; 
     if (ballPos === 2) targetDefPos = 5; 
     if (ballPos === 3) targetDefPos = 6; 
-    
     const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
 
+    // Статы и квирки
     const atkStats = getEffectiveStats(spiker, attackingTeam);
     const blkStats = getEffectiveStats(blocker, defendingTeam);
     const digStats = getEffectiveStats(floorDefender, defendingTeam);
@@ -344,32 +349,34 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     const d20_atk = Math.floor(Math.random() * 20) + 1;
     const d20_blk = Math.floor(Math.random() * 20) + 1;
     const d20_dig = Math.floor(Math.random() * 20) + 1;
-
     const setterBonus = room.gameState.setterBonus || 0;
 
     let attackPower = atkStats.power + d20_atk + spikeQuirk.bonus + setterBonus;
-    
     let blockPower = 0;
     if (isGuessCorrect) {
         blockPower = blkStats.block + d20_blk + 5 + blockQuirk.bonus;
     }
-
     let digPower = digStats.receive + d20_dig + digQuirk.bonus;
 
     let quirkLog = [...spikeQuirk.log];
     if (isGuessCorrect) quirkLog.push(...blockQuirk.log);
     quirkLog.push(...digQuirk.log);
-    
     let message = quirkLog.length ? `[${quirkLog.join(' | ')}] ` : "";
+    
+    // Результат раунда
     let winner = null;
     let details = '';
     let nextPhase = 'SERVE';
     let nextTurn = null;
 
-    await delay(900);
+    // Траектория для анимации
+    let trajectoryType = 'NORMAL'; 
+    let startActorId = spiker.id;
+    let endActorId = floorDefender.id;
+
+    await delay(1200);
 
     let isKillBlock = isGuessCorrect && blockPower > attackPower;
-    
     if (isKillBlock && spiker.id === 'hyakuzawa') {
         isKillBlock = false;
         message += ` (Хякузава пробил блок!) `;
@@ -377,23 +384,39 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     }
 
     if (isKillBlock) {
+        // MONSTER BLOCK
         winner = 'DEFENSE';
         message += `🧱 MONSTER BLOCK! ${blocker.name} заблокировал!`;
         details = `Блок ${blockPower} > Атака ${attackPower}`;
+        
+        trajectoryType = 'BOUNCE'; 
+        startActorId = blocker.id;
+        endActorId = spiker.id; 
     } else {
         let remainingForce = attackPower;
         let preMsg = '';
         
         if (isGuessCorrect) {
+            // SOFT BLOCK
             remainingForce = Math.floor(attackPower - (blockPower * 0.5));
-            if (remainingForce < 8) remainingForce = 8; 
+            if (remainingForce < 5) remainingForce = 5; 
             preMsg = `🛡️ Смягчение блоком!`;
+            
+            trajectoryType = 'SOFT'; 
+            startActorId = blocker.id;
+            endActorId = floorDefender.id;
         } else {
+            // NORMAL ATTACK
             remainingForce = attackPower;
             preMsg = `💥 ЧИСТАЯ СЕТКА!`;
+            
+            trajectoryType = 'NORMAL'; 
+            startActorId = spiker.id;
+            endActorId = floorDefender.id;
         }
 
         if (digPower >= remainingForce) {
+            // Мяч поднят
             const isCounterAttack = Math.random() < 0.5;
             if (isCounterAttack) {
                 message += `${preMsg} ${floorDefender.name} ТАЩИТ! Переход в атаку!`;
@@ -407,6 +430,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             details = `Прием ${digPower} > Удар ${remainingForce}`;
             winner = null; 
         } else {
+            // Гол
             winner = 'ATTACK';
             message += `🏐 ГОЛ! ${spiker.name} пробил защиту!`;
             details = `Удар ${remainingForce} > Прием ${digPower}`;
@@ -414,45 +438,33 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     }
 
     let rotMessage = '';
+    // Обновление счета и ротация
     if (winner) {
         nextPhase = 'SERVE';
-        
+        const updateScoreAndRotate = (isTeam1Winner) => {
+            if (isTeam1Winner) {
+                room.gameState.score.team1++;
+                if (room.gameState.servingTeam === 'team2') {
+                    rotateTeam(room.team1);
+                    rotMessage = ' (Переход подачи!)';
+                    room.gameState.servingTeam = 'team1';
+                }
+                nextTurn = room.players[0];
+            } else {
+                room.gameState.score.team2++;
+                if (room.gameState.servingTeam === 'team1') {
+                    rotateTeam(room.team2);
+                    rotMessage = ' (Переход подачи!)';
+                    room.gameState.servingTeam = 'team2';
+                }
+                nextTurn = room.players[1];
+            }
+        };
+
         if (winner === 'ATTACK') {
-            if (isTeam1Defending) {
-                room.gameState.score.team2++;
-                if (room.gameState.servingTeam === 'team1') {
-                    rotateTeam(room.team2);
-                    rotMessage = ' (Переход подачи!)';
-                    room.gameState.servingTeam = 'team2';
-                }
-                nextTurn = room.players[1];
-            } else {
-                room.gameState.score.team1++;
-                if (room.gameState.servingTeam === 'team2') {
-                    rotateTeam(room.team1);
-                    rotMessage = ' (Переход подачи!)';
-                    room.gameState.servingTeam = 'team1';
-                }
-                nextTurn = room.players[0];
-            }
+            updateScoreAndRotate(!isTeam1Defending);
         } else {
-            if (isTeam1Defending) {
-                room.gameState.score.team1++;
-                if (room.gameState.servingTeam === 'team2') {
-                    rotateTeam(room.team1);
-                    rotMessage = ' (Переход подачи!)';
-                    room.gameState.servingTeam = 'team1';
-                }
-                nextTurn = room.players[0];
-            } else {
-                room.gameState.score.team2++;
-                if (room.gameState.servingTeam === 'team1') {
-                    rotateTeam(room.team2);
-                    rotMessage = ' (Переход подачи!)';
-                    room.gameState.servingTeam = 'team2';
-                }
-                nextTurn = room.players[1];
-            }
+            updateScoreAndRotate(isTeam1Defending);
         }
     } 
     
@@ -461,23 +473,11 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
 
     const s1 = room.gameState.score.team1;
     const s2 = room.gameState.score.team2;
-
     let isCritical = false;
-
-    if (winner === 'DEFENSE' && isKillBlock) {
-        isCritical = true;
-    }
-    
+    if (winner === 'DEFENSE' && isKillBlock) isCritical = true;
     if (winner === 'ATTACK') {
-        let remainingForce = attackPower;
-        if (isGuessCorrect) remainingForce = Math.floor(attackPower - (blockPower * 0.5));
-        
-        let forceDifference = remainingForce - digPower;
-        
-        if (forceDifference > 10) {
-            isCritical = true;
-            message += " 💥 РАЗГРОМ!";
-        }
+         let rf = isGuessCorrect ? Math.floor(attackPower - (blockPower * 0.5)) : attackPower;
+         if (rf - digPower > 10) isCritical = true;
     }
     
     if (winner && (s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
@@ -494,42 +494,44 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             team1: room.team1, 
             team2: room.team2,
             isCritical: isCritical,
+            
             attackerId: spiker.id,
-            receiverId: isGuessCorrect ? blocker.id : floorDefender.id,
+            trajectory: {
+                type: trajectoryType,
+                startId: startActorId,
+                endId: endActorId
+            },
+            
             valAtk: attackPower,
             valDef: isGuessCorrect && blockPower > attackPower ? blockPower : digPower,
             winSide: winner
         });
 
-        // Если следующий ход ИИ
         if (room.isAI && room.gameState.turn === 'AI') {
             aiMakeMove(roomId, room, io);
         }
     }
 }
 
-// ========== СОКЕТ СОБЫТИЯ ========== 
+// ========== СОКЕТЫ ========== 
 
 io.on('connection', (socket) => {
     console.log(`[+] Игрок подключился: ${socket.id}`);
 
-    // СОЗДАТЬ ИГРУ ПРОТИВ ИИ
+    // AI MODE
     socket.on('create_ai_game', () => {
         const roomId = 'AI-' + Math.random().toString(36).substring(2, 7).toUpperCase();
-        
         games[roomId] = {
             players: [socket.id, 'AI'],
             team1: [],
             team2: [],
             state: 'draft',
             bannedCharacters: [],
-            isAI: true, // Флаг игры против ИИ
+            isAI: true,
             aiTeamReady: false
         };
-        
         socket.join(roomId);
         
-        // Сразу отправляем драфт
         io.to(roomId).emit('game_started', { 
             start: true, 
             players: [socket.id, 'AI'],
@@ -537,10 +539,11 @@ io.on('connection', (socket) => {
             roomId: roomId
         });
         
-        games[roomId].draftTurn = socket.id; // Игрок начинает драфт
+        games[roomId].draftTurn = socket.id;
         io.to(roomId).emit('draft_turn', { turn: socket.id });
     });
 
+    // PVP MODE
     socket.on('create_game', () => {
         const roomId = Math.random().toString(36).substring(2, 7).toUpperCase();
         games[roomId] = {
@@ -577,7 +580,6 @@ io.on('connection', (socket) => {
         const room = games[roomId];
         if (!room) return;
         
-        // Для AI игры игрок всегда может выбирать
         if (room.isAI || room.draftTurn === socket.id) {
             if (!room.bannedCharacters.includes(charId)) {
                 room.bannedCharacters.push(charId);
@@ -587,6 +589,8 @@ io.on('connection', (socket) => {
                     const otherId = room.players.find(id => id !== socket.id);
                     room.draftTurn = otherId;
                     io.to(roomId).emit('draft_turn', { turn: room.draftTurn });
+                } else {
+                    io.to(roomId).emit('draft_turn', { turn: socket.id });
                 }
             }
         }
@@ -599,14 +603,10 @@ io.on('connection', (socket) => {
         if (socket.id === room.players[0]) room.team1 = team;
         else room.team2 = team;
 
-        // Если игра против ИИ и игрок готов
         if (room.isAI && room.team1.length === 6 && !room.aiTeamReady) {
             room.aiTeamReady = true;
-            
-            // ИИ выбирает команду
             room.team2 = aiDraftTeam(room.bannedCharacters);
             
-            // Запускаем матч
             const firstServerIndex = Math.random() < 0.5 ? 0 : 1;
             const servingPlayerId = room.players[firstServerIndex];
             
@@ -631,12 +631,10 @@ io.on('connection', (socket) => {
                 score: room.gameState.score
             });
 
-            // Если ИИ начинает
             if (servingPlayerId === 'AI') {
                 aiMakeMove(roomId, room, io);
             }
         }
-        // Обычная PvP игра
         else if (!room.isAI && room.team1.length === 6 && room.team2.length === 6) {
             const firstServerIndex = Math.random() < 0.5 ? 0 : 1;
             const servingPlayerId = room.players[firstServerIndex];
