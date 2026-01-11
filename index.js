@@ -45,7 +45,6 @@ function rotateTeam(team) {
 
 function getEffectiveStats(player, team) {
     let stats = { ...player.stats };
-    // Пример синергии (Кенма + Некома)
     const hasKenma = team.some(p => p.id === 'kenma');
     if (hasKenma && player.team === 'Nekoma') {
         stats.power += 2;
@@ -104,6 +103,41 @@ function applyQuirks(actionType, player, effectiveStats) {
     return { bonus, log };
 }
 
+// --- УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ПРОВЕРКИ ПОБЕДЫ ---
+function checkGameOver(room, io, roomId) {
+    const s1 = room.gameState.score.team1;
+    const s2 = room.gameState.score.team2;
+    
+    // Условие: >= 25 очков И разница >= 2
+    if ((s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
+        // Поиск MVP
+        const allPlayers = [...room.team1, ...room.team2];
+        let mvp = allPlayers[0];
+        let maxScore = -1;
+
+        allPlayers.forEach(p => {
+            const pts = p.matchStats ? p.matchStats.points : 0;
+            const blks = p.matchStats ? p.matchStats.blocks : 0;
+            const total = pts + (blks * 0.5); 
+            if (total > maxScore) {
+                maxScore = total;
+                mvp = p;
+            }
+        });
+
+        const winnerTeamName = s1 > s2 ? 'КОМАНДА 1' : 'КОМАНДА 2';
+
+        io.to(roomId).emit('game_over', {
+            message: `🏆 ПОБЕДА! Счет ${s1} : ${s2}`,
+            winner: winnerTeamName,
+            score: { team1: s1, team2: s2 },
+            mvp: mvp
+        });
+        return true; // Игра закончена
+    }
+    return false; // Игра продолжается
+}
+
 // 🤖 ========== ЛОГИКА ИИ ========== 🤖
 
 function aiDraftTeam(bannedIds = []) {
@@ -111,7 +145,8 @@ function aiDraftTeam(bannedIds = []) {
     const shuffled = [...available].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, 6).map((char, index) => ({
         ...char,
-        position: index + 1
+        position: index + 1,
+        matchStats: { points: 0, blocks: 0 }
     }));
 }
 
@@ -122,7 +157,6 @@ function aiChooseSetPosition(room) {
 
 function aiChooseBlockPosition(room) {
     const ballPos = room.gameState.ballPosition;
-    // 70% шанс угадать правильно
     if (Math.random() < 0.7) {
         let correctBlockPos = 3;
         if (ballPos === 4) correctBlockPos = 2;
@@ -130,20 +164,14 @@ function aiChooseBlockPosition(room) {
         if (ballPos === 3) correctBlockPos = 3;
         return correctBlockPos;
     }
-    // 30% ошибается
     const positions = [2, 3, 4];
     return positions[Math.floor(Math.random() * positions.length)];
 }
 
-// ИИ делает действие
 async function aiMakeMove(roomId, room, io) {
-    // Длинная задержка для плавности
     await delay(2000 + Math.random() * 1000);
-    
     if (!room.isAI || room.gameState.turn !== 'AI') return;
-    
     const phase = room.gameState.phase;
-    
     if (phase === 'SERVE') {
         handleServe(roomId, room, 'AI', io);
     } 
@@ -167,12 +195,9 @@ async function handleServe(roomId, room, playerId, io) {
     const defendingTeam = isTeam1 ? room.team2 : room.team1;
 
     const serverPlayer = attackingTeam.find(p => p.position === 1);
-    
-    // Определяем жертву (принимающего)
     const backRow = defendingTeam.filter(p => [1, 5, 6].includes(p.position));
     const receiver = backRow[Math.floor(Math.random() * backRow.length)] || defendingTeam[0];
 
-    // Пенальти за серию подач
     if (room.gameState.lastServerId === serverPlayer.id) {
         room.gameState.serveStreak++;
     } else {
@@ -190,7 +215,6 @@ async function handleServe(roomId, room, playerId, io) {
     const attackRoll = Math.floor(Math.random() * 20) + 1;
     const defenseRoll = Math.floor(Math.random() * 20) + 1;
     
-    // ВЫЧИТАЕМ PENALTY ИЗ АТАКИ
     let totalAttack = sStats.serve + attackRoll + serveQuirk.bonus - adaptationPenalty;
     if (totalAttack < 1) totalAttack = 1;
 
@@ -205,24 +229,30 @@ async function handleServe(roomId, room, playerId, io) {
     let isCritical = false;
     let isBadReception = false;
 
-    // Задержка анимации подачи
     await delay(1000);
     
     if (diff < -5) {
+        // --- ЭЙС ---
         if (diff < -10) {
             isCritical = true;
             message += `💥 РАЗРЫВНОЙ ЭЙС! ${serverPlayer.name} сносит ${receiver.name}!`;
         } else {
             message += `🔥 ЭЙС! ${serverPlayer.name} пробил ${receiver.name}!`;
         }
-
+        
+        // Очки и статистика
+        if (serverPlayer.matchStats) serverPlayer.matchStats.points++;
         if (isTeam1) room.gameState.score.team1++;
         else room.gameState.score.team2++;
         
         room.gameState.phase = 'SERVE';
         room.gameState.turn = playerId;
+
+        // ПРОВЕРКА ПОБЕДЫ (ЭЙСОМ)
+        if (checkGameOver(room, io, roomId)) return; // Выход, если игра кончилась
+
     } else {
-        // Мяч поднят
+        // --- ПРИЕМ ---
         if (diff < 0) {
             message += `⚠️ Тяжелый прием от ${receiver.name}...`;
             isBadReception = true; 
@@ -240,9 +270,9 @@ async function handleServe(roomId, room, playerId, io) {
         score: room.gameState.score,
         nextTurn: room.gameState.turn,
         phase: room.gameState.phase,
-        serverId: serverPlayer.id, // Character ID
+        serverId: serverPlayer.id, 
         attackerId: serverPlayer.id,
-        receiverId: receiver.id, // ID для полета мяча
+        receiverId: receiver.id, 
         valAtk: totalAttack,
         valDef: totalDefense,
         isBadReception: isBadReception,
@@ -259,7 +289,6 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     const isTeam1 = room.players[0] === playerId;
     const myTeam = isTeam1 ? room.team1 : room.team2;
     
-    // Находим персонажа-связующего (Тот, кто на позиции 3)
     const setterPlayer = myTeam.find(p => p.position === 3) || myTeam[0];
     const sStats = getEffectiveStats(setterPlayer, myTeam);
     
@@ -277,10 +306,8 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     if (targetPos === 3) positionName = "ПАЙП (Задняя линия)";
     if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
 
-    // Задержка анимации паса
     await delay(1200);
 
-    // ОТПРАВЛЯЕМ ID ПЕРСОНАЖА (setterPlayer.id), А НЕ СОКЕТА (playerId)
     if (playerId !== 'AI' && socket) {
         socket.emit('set_result', {
             message: `Вы отдали пас на ${positionName} (Бонус +${setterBonus})`,
@@ -312,11 +339,9 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
 
 async function handleBlock(roomId, room, playerId, blockPos, io) {
     const ballPos = room.gameState.ballPosition; 
-    
     let attackPosition = ballPos;
     if (ballPos === 3) attackPosition = 6; 
 
-    // Где должен быть блок
     let correctBlockPos = 3;
     if (ballPos === 4) correctBlockPos = 2;
     if (ballPos === 2) correctBlockPos = 4;
@@ -327,14 +352,17 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     const defendingTeam = isTeam1Defending ? room.team1 : room.team2;
     const attackingTeam = isTeam1Defending ? room.team2 : room.team1;
 
-    // Участники
     const spiker = attackingTeam.find(p => p.position === attackPosition) 
                     || attackingTeam.find(p => p.position === 4) 
                     || attackingTeam.find(p => p.position === 2) 
                     || attackingTeam[0];
     
+    if (spiker.id === 'sakusa' && ballPos === 4) {
+        correctBlockPos = 3; 
+    }
+
     const isGuessCorrect = blockPos === correctBlockPos;
-    const blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
+    let blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
     const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
 
     let targetDefPos = 6; 
@@ -343,7 +371,6 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     if (ballPos === 3) targetDefPos = 6; 
     const floorDefender = defendingTeam.find(p => p.position === targetDefPos) || defendingTeam.find(p => p.position === 6);
 
-    // Статы и квирки
     const atkStats = getEffectiveStats(spiker, attackingTeam);
     const blkStats = getEffectiveStats(blocker, defendingTeam);
     const digStats = getEffectiveStats(floorDefender, defendingTeam);
@@ -369,24 +396,19 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     quirkLog.push(...digQuirk.log);
     let message = quirkLog.length ? `[${quirkLog.join(' | ')}] ` : "";
     
-    // --- ПРАВИЛЬНАЯ ЛОГИКА НИНДЗЯ ---
     let ninjaMsg = "";
     if (spiker.id === 'hinata_ts' && isGuessCorrect) {
         const ninjaRoll = Math.random();
-        if (ninjaRoll > 0.5) { // 50% шанс
-            blockPower = 0; // Блок аннигилирован
+        if (ninjaRoll > 0.5) { 
+            blockPower = 0; 
             ninjaMsg = ` 💨 НИНДЗЯ! Хината отыграл от рук в аут!`;
         }
     }
-    // -----------------------------------------------------
 
-    // Результат раунда
     let winner = null;
     let details = '';
     let nextPhase = 'SERVE';
     let nextTurn = null;
-
-    // Траектория для анимации
     let trajectoryType = 'NORMAL'; 
     let startActorId = spiker.id;
     let endActorId = floorDefender.id;
@@ -401,40 +423,33 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     }
 
     if (isKillBlock) {
-        // MONSTER BLOCK
         winner = 'DEFENSE';
         message += `🧱 MONSTER BLOCK! ${blocker.name} заблокировал!`;
         details = `Блок ${blockPower} > Атака ${attackPower}`;
-        
         trajectoryType = 'BOUNCE'; 
         startActorId = blocker.id;
         endActorId = spiker.id; 
     } else {
         let remainingForce = attackPower;
         let preMsg = '';
-        if (ninjaMsg) message += ninjaMsg; // Добавляем сообщение ниндзя
+        if (ninjaMsg) message += ninjaMsg;
         
-        if (isGuessCorrect && blockPower > 0) { // Проверяем, что блок не обнулен ниндзей
-            // SOFT BLOCK
+        if (isGuessCorrect && blockPower > 0) {
             remainingForce = Math.floor(attackPower - (blockPower * 0.5));
             if (remainingForce < 5) remainingForce = 5; 
             preMsg = `🛡️ Смягчение блоком!`;
-            
             trajectoryType = 'SOFT'; 
             startActorId = blocker.id;
             endActorId = floorDefender.id;
         } else {
-            // NORMAL ATTACK (Чистая сетка или Ниндзя обнулил блок)
             remainingForce = attackPower;
             preMsg = `💥 ЧИСТАЯ СЕТКА!`;
-            
             trajectoryType = 'NORMAL'; 
             startActorId = spiker.id;
             endActorId = floorDefender.id;
         }
 
         if (digPower >= remainingForce) {
-            // Мяч поднят
             const isCounterAttack = Math.random() < 0.5;
             if (isCounterAttack) {
                 message += `${preMsg} ${floorDefender.name} ТАЩИТ! Переход в атаку!`;
@@ -448,7 +463,6 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             details = `Прием ${digPower} > Удар ${remainingForce}`;
             winner = null; 
         } else {
-            // Гол
             winner = 'ATTACK';
             message += `🏐 ГОЛ! ${spiker.name} пробил защиту!`;
             details = `Удар ${remainingForce} > Прием ${digPower}`;
@@ -456,9 +470,22 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     }
 
     let rotMessage = '';
-    // Обновление счета и ротация
     if (winner) {
         nextPhase = 'SERVE';
+        
+        if (winner === 'ATTACK') {
+            if (spiker.matchStats) spiker.matchStats.points++;
+        } else if (winner === 'DEFENSE') {
+            if (isKillBlock) {
+                if (blocker.matchStats) {
+                    blocker.matchStats.blocks++;
+                    blocker.matchStats.points++;
+                }
+            } else {
+                if (floorDefender.matchStats) floorDefender.matchStats.points++;
+            }
+        }
+
         const updateScoreAndRotate = (isTeam1Winner) => {
             if (isTeam1Winner) {
                 room.gameState.score.team1++;
@@ -489,29 +516,22 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     room.gameState.turn = nextTurn;
     room.gameState.phase = nextPhase;
 
-    const s1 = room.gameState.score.team1;
-    const s2 = room.gameState.score.team2;
-    
-    // --- ОПРЕДЕЛЕНИЕ ЭФФЕКТОВ (FIX) ---
     let isCritical = false;
-    let isLegendary = false; // Объявляем переменную здесь!
+    let isLegendary = false; 
 
     if (winner === 'DEFENSE' && isKillBlock) isCritical = true;
     if (winner === 'ATTACK') {
          let rf = (isGuessCorrect && blockPower > 0) ? Math.floor(attackPower - (blockPower * 0.5)) : attackPower;
          if (rf - digPower > 10) isCritical = true;
-         
-         // Проверяем на легендарность
          if (spiker.id === 'hinata_ts' || (ninjaMsg && ninjaMsg.length > 0)) {
              isLegendary = true;
              isCritical = true;
          }
     }
     
-    if (winner && (s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
-        io.to(roomId).emit('game_over', {
-            message: `🏆 ПОБЕДА! Счет ${s1} : ${s2}`
-        });
+    // ПРОВЕРКА ПОБЕДЫ (С УЧЕТОМ MVP)
+    if (winner && checkGameOver(room, io, roomId)) {
+        return; // Игра закончена, больше ничего не отправляем
     } else {
         io.to(roomId).emit('spike_result', {
             message: message + rotMessage,
@@ -629,8 +649,14 @@ io.on('connection', (socket) => {
         const room = games[roomId];
         if (!room) return;
 
-        if (socket.id === room.players[0]) room.team1 = team;
-        else room.team2 = team;
+        // ВАЖНО: Добавляем статы
+        const teamWithStats = team.map(p => ({
+            ...p,
+            matchStats: { points: 0, blocks: 0 }
+        }));
+
+        if (socket.id === room.players[0]) room.team1 = teamWithStats;
+        else room.team2 = teamWithStats;
 
         if (room.isAI && room.team1.length === 6 && !room.aiTeamReady) {
             room.aiTeamReady = true;
