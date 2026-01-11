@@ -82,14 +82,9 @@ function applyQuirks(actionType, player, effectiveStats) {
                 bonus -= 5; log.push(`🦉 Бокуто приуныл...`);
             }
         }
-    }
-
-    if (spiker.id === 'hinata_ts' && isGuessCorrect) {
-        const ninjaRoll = Math.random();
-        if (ninjaRoll > 0.5) { // 50% шанс
-            blockPower = 0; // Блок аннигилирован
-            isKillBlock = false; // Килл-блока быть не может
-            message = `💨 НИНДЗЯ! Хината отыграл от рук в аут!`;               
+        if (player.id === 'hinata_ts') {
+            bonus += 2;
+            log.push(`🇧🇷 Ninja Shoyo`);
         }
     }
 
@@ -251,6 +246,7 @@ async function handleServe(roomId, room, playerId, io) {
         valAtk: totalAttack,
         valDef: totalDefense,
         isBadReception: isBadReception,
+        isCritical: isCritical,
         winSide: diff < -5 ? 'ATTACK' : 'DEFENSE'
     });
 
@@ -336,6 +332,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
                     || attackingTeam.find(p => p.position === 4) 
                     || attackingTeam.find(p => p.position === 2) 
                     || attackingTeam[0];
+    
     const isGuessCorrect = blockPos === correctBlockPos;
     const blockerPosToFind = isGuessCorrect ? correctBlockPos : 3;
     const blocker = defendingTeam.find(p => p.position === blockerPosToFind) || defendingTeam.find(p => p.position === 3);
@@ -372,6 +369,17 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     quirkLog.push(...digQuirk.log);
     let message = quirkLog.length ? `[${quirkLog.join(' | ')}] ` : "";
     
+    // --- ПРАВИЛЬНАЯ ЛОГИКА НИНДЗЯ ---
+    let ninjaMsg = "";
+    if (spiker.id === 'hinata_ts' && isGuessCorrect) {
+        const ninjaRoll = Math.random();
+        if (ninjaRoll > 0.5) { // 50% шанс
+            blockPower = 0; // Блок аннигилирован
+            ninjaMsg = ` 💨 НИНДЗЯ! Хината отыграл от рук в аут!`;
+        }
+    }
+    // -----------------------------------------------------
+
     // Результат раунда
     let winner = null;
     let details = '';
@@ -404,8 +412,9 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     } else {
         let remainingForce = attackPower;
         let preMsg = '';
+        if (ninjaMsg) message += ninjaMsg; // Добавляем сообщение ниндзя
         
-        if (isGuessCorrect) {
+        if (isGuessCorrect && blockPower > 0) { // Проверяем, что блок не обнулен ниндзей
             // SOFT BLOCK
             remainingForce = Math.floor(attackPower - (blockPower * 0.5));
             if (remainingForce < 5) remainingForce = 5; 
@@ -415,7 +424,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             startActorId = blocker.id;
             endActorId = floorDefender.id;
         } else {
-            // NORMAL ATTACK
+            // NORMAL ATTACK (Чистая сетка или Ниндзя обнулил блок)
             remainingForce = attackPower;
             preMsg = `💥 ЧИСТАЯ СЕТКА!`;
             
@@ -482,11 +491,21 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
 
     const s1 = room.gameState.score.team1;
     const s2 = room.gameState.score.team2;
+    
+    // --- ОПРЕДЕЛЕНИЕ ЭФФЕКТОВ (FIX) ---
     let isCritical = false;
+    let isLegendary = false; // Объявляем переменную здесь!
+
     if (winner === 'DEFENSE' && isKillBlock) isCritical = true;
     if (winner === 'ATTACK') {
-         let rf = isGuessCorrect ? Math.floor(attackPower - (blockPower * 0.5)) : attackPower;
+         let rf = (isGuessCorrect && blockPower > 0) ? Math.floor(attackPower - (blockPower * 0.5)) : attackPower;
          if (rf - digPower > 10) isCritical = true;
+         
+         // Проверяем на легендарность
+         if (spiker.id === 'hinata_ts' || (ninjaMsg && ninjaMsg.length > 0)) {
+             isLegendary = true;
+             isCritical = true;
+         }
     }
     
     if (winner && (s1 >= 25 || s2 >= 25) && Math.abs(s1 - s2) >= 2) {
@@ -503,6 +522,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             team1: room.team1, 
             team2: room.team2,
             isCritical: isCritical,
+            isLegendary: isLegendary,
             
             attackerId: spiker.id,
             trajectory: {
@@ -512,7 +532,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
             },
             
             valAtk: attackPower,
-            valDef: isGuessCorrect && blockPower > attackPower ? blockPower : digPower,
+            valDef: (isGuessCorrect && blockPower > attackPower) ? blockPower : digPower,
             winSide: winner
         });
 
