@@ -60,7 +60,8 @@ const characters = [
     { id: 'hyakuzawa', name: 'Хякузава Юдай', team: 'Kakugawa', stats: { power: 17, receive: 5, set: 3, block: 12, serve: 10 }, img: '/assets/hyakuzawa.png', quirk: { name: "2 Метра", desc: "Иммунитет к Килл-Блоку." } },
     { id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', stats: { power: 15, receive: 15, set: 7, block: 10, serve: 14 }, img: '/assets/daishou.png', quirk: { name: "Хитрость", desc: "Финты." } },
     { id: 'takeru', name: 'Накашима Такеру', team: 'Wakutani', stats: { power: 14, receive: 14, set: 8, block: 12, serve: 13 }, img: '/assets/takeru.png', quirk: { name: "Блок-аут", desc: "Отыгрыш." } },
-    { id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', stats: { power: 16, receive: 9, set: 5, block: 8, serve: 17 }, img: '/assets/gora.png', quirk: null }
+    { id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', stats: { power: 16, receive: 9, set: 5, block: 8, serve: 17 }, img: '/assets/gora.png', quirk: null },
+    { id: 'hinata_ts', name: 'Ниндзя Хината', team: 'MSBY Black Jackals', stats: { power: 30, receive: 20, set: 15, block: 20, serve: 20 }, img: '/assets/hinata_ts.png', quirk: { name: "Ниндзя", desc: "50% шанс полностью обнулить успешный блок соперника." }, isSecret: true }
 ];
 
 module.exports = characters;

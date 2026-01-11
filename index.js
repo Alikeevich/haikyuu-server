@@ -84,6 +84,15 @@ function applyQuirks(actionType, player, effectiveStats) {
         }
     }
 
+    if (spiker.id === 'hinata_ts' && isGuessCorrect) {
+        const ninjaRoll = Math.random();
+        if (ninjaRoll > 0.5) { // 50% шанс
+            blockPower = 0; // Блок аннигилирован
+            isKillBlock = false; // Килл-блока быть не может
+            message = `💨 НИНДЗЯ! Хината отыграл от рук в аут!`;               
+        }
+    }
+
     if (actionType === 'BLOCK') {
         if (player.id === 'kuroo') { bonus += 4; log.push(`😼 Килл-блок!`); }
         if (player.id === 'tsukishima') { bonus += 4; log.push(`🌙 Чтение блока!`); }
