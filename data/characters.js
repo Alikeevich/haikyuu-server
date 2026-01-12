@@ -13,7 +13,7 @@ const characters = [
     // --- AOBA JOHSAI ---
     { id: 'oikawa', name: 'Ойкава Тоору', team: 'Seijoh', stats: { power: 15, receive: 13, set: 19, block: 11, serve: 20 }, img: '/assets/oikawa.png', quirk: { name: "Великий Король", desc: "+5 к Подаче, высокий бонус паса." } },
     { id: 'iwai', name: 'Иваизуми Хаджиме', team: 'Seijoh', stats: { power: 18, receive: 14, set: 7, block: 10, serve: 16 }, img: '/assets/iwai.png', quirk: { name: "Ас Сейджо", desc: "+2 к Атаке." } },
-    { id: 'kyotani', name: 'Кётани (Пёс)', team: 'Seijoh', stats: { power: 19, receive: 8, set: 4, block: 10, serve: 16 }, img: '/assets/kyotani.png', quirk: { name: "Острый угол", desc: "+3 Атаки, но риск аута." } },
+    { id: 'kyotani', name: 'Кётани (Пёс)', team: 'Seijoh', stats: { power: 21, receive: 8, set: 4, block: 10, serve: 16 }, img: '/assets/kyotani.png', quirk: { name: "Ёбнутый", desc: "+3 Атаки, но риск аута." } },
     { id: 'kunimi', name: 'Куними Акира', team: 'Seijoh', stats: { power: 12, receive: 15, set: 12, block: 9, serve: 14 }, img: '/assets/kunimi.png', quirk: null },
     { id: 'kindaichi', name: 'Киндаичи Ютаро', team: 'Seijoh', stats: { power: 14, receive: 10, set: 5, block: 13, serve: 13 }, img: '/assets/kindaichi.png', quirk: null },
 
@@ -58,7 +58,7 @@ const characters = [
 
     // --- OTHERS ---
     { id: 'hyakuzawa', name: 'Хякузава Юдай', team: 'Kakugawa', stats: { power: 17, receive: 5, set: 3, block: 12, serve: 10 }, img: '/assets/hyakuzawa.png', quirk: { name: "2 Метра", desc: "Иммунитет к Килл-Блоку." } },
-    { id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', stats: { power: 15, receive: 15, set: 7, block: 10, serve: 14 }, img: '/assets/daishou.png', quirk: { name: "Хитрость", desc: "Финты." } },
+    { id: 'daishou', name: 'Дайшо Сугуру', team: 'Nohebi', stats: { power: 15, receive: 15, set: 7, block: 10, serve: 14 }, img: '/assets/daishou.png', quirk: { name: "Жыланбалык", desc: "Провоцирует связующего давая -2 к сету." } },
     { id: 'takeru', name: 'Накашима Такеру', team: 'Wakutani', stats: { power: 14, receive: 14, set: 8, block: 12, serve: 13 }, img: '/assets/takeru.png', quirk: { name: "Блок-аут", desc: "Отыгрыш." } },
     { id: 'gora', name: 'Гора Масаки', team: 'Ubugawa', stats: { power: 16, receive: 9, set: 5, block: 8, serve: 17 }, img: '/assets/gora.png', quirk: null },
     { id: 'hinata_ts', name: 'Ниндзя Хината', team: 'MSBY Black Jackals', stats: { power: 30, receive: 20, set: 15, block: 20, serve: 20 }, img: '/assets/hinata_ts.png', quirk: { name: "Ниндзя", desc: "50% шанс полностью обнулить успешный блок соперника." }, isSecret: true }

@@ -63,17 +63,17 @@ function applyQuirks(actionType, player, effectiveStats) {
     if (!player.quirk) return { bonus, log };
 
     if (actionType === 'SERVE') {
-        if (player.id === 'oikawa') { bonus += 5; log.push(`👽 Убийственная подача!`); }
-        if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Пушечная подача!`); }
-        if (player.id === 'kageyama') { bonus += 3; log.push(`👑 Подача Короля!`); }
-        if (player.id === 'atsumu') { bonus += 4; log.push(`🦊 Двойной вилд!`); }
-        if (player.id === 'yamaguchi') { bonus += 4; log.push(`🎈 Планер!`); }
+        if (player.id === 'oikawa') { bonus += 5; log.push(`Убийственная подача!`); }
+        if (player.id === 'ushijima') { bonus += 4; log.push(`Пушечная подача!`); }
+        if (player.id === 'kageyama') { bonus += 3; log.push(`Подача Короля!`); }
+        if (player.id === 'atsumu') { bonus += 4; log.push(`Гибридка!`); }
+        if (player.id === 'yamaguchi') { bonus += 4; log.push(`Планер!`); }
     }
 
     if (actionType === 'SPIKE') {
-        if (player.id === 'hinata') { bonus += 5; log.push(`🍊 ВЖУХ!`); }
-        if (player.id === 'ushijima') { bonus += 4; log.push(`🦅 Мощь Ушиджимы!`); }
-        if (player.id === 'asahi') { bonus += 3; log.push(`🙏 Пробой Аса!`); }
+        if (player.id === 'hinata') { bonus += 5; log.push(`ВЖУХ!`); }
+        if (player.id === 'ushijima') { bonus += 4; log.push(`Мощь Ушиваки!`); }
+        if (player.id === 'asahi') { bonus += 3; log.push(`Пробой Аса!`); }
         if (player.id === 'bokuto') {
             if (Math.random() > 0.4) {
                 bonus += 8; log.push(`🦉 ХЕЙ ХЕЙ ХЕЙ!`);
@@ -88,16 +88,16 @@ function applyQuirks(actionType, player, effectiveStats) {
     }
 
     if (actionType === 'BLOCK') {
-        if (player.id === 'kuroo') { bonus += 4; log.push(`😼 Килл-блок!`); }
+        if (player.id === 'kuroo') { bonus += 4; log.push(`Проблемный!`); }
         if (player.id === 'tsukishima') { bonus += 4; log.push(`🌙 Чтение блока!`); }
         if (player.id === 'tendo') { bonus += 5; log.push(`👻 Guess Block!`); }
-        if (player.id === 'aone') { bonus += 5; log.push(`🛡️ Железная стена!`); }
+        if (player.id === 'aone') { bonus += 5; log.push(`Железная стена!`); }
     }
 
     if (actionType === 'DIG') {
-        if (player.id === 'nishinoya') { bonus += 5; log.push(`⚡ ROLLING THUNDER!`); }
-        if (player.id === 'yaku') { bonus += 4; log.push(`🐈 Страж Яку!`); }
-        if (player.id === 'daichi') { bonus += 2; log.push(`🛡️ Капитан тащит!`); }
+        if (player.id === 'nishinoya') { bonus += 5; log.push(`Раскаты грома!`); }
+        if (player.id === 'yaku') { bonus += 4; log.push(`Страж Яку`); }
+        if (player.id === 'daichi') { bonus += 2; log.push(`СУГАВАРАА!`); }
     }
 
     return { bonus, log };
@@ -288,11 +288,17 @@ async function handleServe(roomId, room, playerId, io) {
 async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     const isTeam1 = room.players[0] === playerId;
     const myTeam = isTeam1 ? room.team1 : room.team2;
+    const enemyTeam = isTeam1 ? room.team2 : room.team1;
     
     const setterPlayer = myTeam.find(p => p.position === 3) || myTeam[0];
     const sStats = getEffectiveStats(setterPlayer, myTeam);
     
     const setterBonus = Math.floor(sStats.set / 4);
+    const hasDaisho = enemyTeam.some(p => p.id === 'daisho');
+    if (hasDaisho) {
+        setterBonus -= 2;
+        console.log(`КВИРК ДАЙШО: Сеттер ${setterPlayer.name} получает -2 (итого: ${setterBonus})`);
+    }
     room.gameState.setterBonus = setterBonus;
 
     room.gameState.ballPosition = targetPos; 
@@ -307,6 +313,10 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     if (targetPos === 2) positionName = "ПРАВЫЙ ФЛАНГ";
 
     await delay(1200);
+    let bonusText = `Бонус +${setterBonus}`;
+    if (hasDaisho && setterBonus < Math.floor(sStats.set / 4)) {
+        bonusText = `Бонус ${setterBonus} [Дайшо: -2]`;
+    }
 
     if (playerId !== 'AI' && socket) {
         socket.emit('set_result', {
@@ -359,6 +369,72 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
                     || attackingTeam.find(p => p.position === 2) 
                     || attackingTeam[0];
     
+    // ✨ КВИРК KYOTANI: 30% ШАНС АУТА
+    if (spiker.id === 'kyotani' && Math.random() < 0.3) {
+        await delay(1200);
+        
+        let message = `🐺 АУТ! Кётани промахнулся!`;
+        const details = `Mad Dog бьёт мимо площадки`;
+        let nextTurn = null;
+        let nextPhase = 'SERVE';
+        
+        // Очки и ротация
+        const updateScoreAndRotate = (isTeam1Winner) => {
+            if (isTeam1Winner) {
+                room.gameState.score.team1++;
+                if (room.gameState.servingTeam === 'team2') {
+                    rotateTeam(room.team1);
+                    message += ' (Переход подачи!)';
+                    room.gameState.servingTeam = 'team1';
+                }
+                nextTurn = room.players[0];
+            } else {
+                room.gameState.score.team2++;
+                if (room.gameState.servingTeam === 'team1') {
+                    rotateTeam(room.team2);
+                    message += ' (Переход подачи!)';
+                    room.gameState.servingTeam = 'team2';
+                }
+                nextTurn = room.players[1];
+            }
+        };
+        
+        updateScoreAndRotate(isTeam1Defending);
+        
+        room.gameState.turn = nextTurn;
+        room.gameState.phase = nextPhase;
+        
+        if (checkGameOver(room, io, roomId)) {
+            return;
+        } else {
+            io.to(roomId).emit('spike_result', {
+                message: message,
+                score: room.gameState.score,
+                nextTurn: nextTurn,
+                phase: nextPhase,
+                details: details,
+                team1: room.team1,
+                team2: room.team2,
+                isCritical: false,
+                isLegendary: false,
+                attackerId: spiker.id,
+                trajectory: {
+                    type: 'OUT',
+                    startId: spiker.id,
+                    endId: null
+                },
+                valAtk: 0,
+                valDef: 0,
+                winSide: 'DEFENSE'
+            });
+
+            if (room.isAI && room.gameState.turn === 'AI') {
+                aiMakeMove(roomId, room, io);
+            }
+        }
+        return; // Выход - обычная атака не выполняется
+    }
+    
     if (spiker.id === 'sakusa' && ballPos === 4) {
         correctBlockPos = 3; 
     }
@@ -403,7 +479,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
         const ninjaRoll = Math.random();
         if (ninjaRoll > 0.5) { 
             blockPower = 0; 
-            ninjaMsg = ` 💨 НИНДЗЯ! Хината отыграл от рук в аут!`;
+            ninjaMsg = ` НИНДЗЯ! Хината отыграл от рук в аут!`;
         }
     }
 
@@ -420,7 +496,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     let isKillBlock = isGuessCorrect && blockPower > attackPower;
     if (isKillBlock && spiker.id === 'hyakuzawa') {
         isKillBlock = false;
-        message += ` (Хякузава пробил блок!) `;
+        message += ` Хякузава над блоком! `;
         attackPower = Math.floor(attackPower * 0.7); 
     }
 
