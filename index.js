@@ -321,14 +321,16 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
             message: `Связующий соперника сделал передачу!`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            setterId: setterPlayer.id 
+            setterId: setterPlayer.id,
+            targetPos: targetPos 
         });
     } else if (playerId === 'AI') {
         io.to(roomId).emit('set_made', {
             message: `Компьютер сделал передачу!`,
             phase: 'BLOCK',
             nextTurn: defenderId,
-            setterId: 'AI'
+            setterId: 'AI',
+            targetPos: targetPos
         });
     }
 
