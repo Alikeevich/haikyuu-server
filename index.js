@@ -189,6 +189,7 @@ async function aiMakeMove(roomId, room, io) {
 
 async function handleServe(roomId, room, playerId, io) {
     console.log(`[SERVE] Игрок ${playerId} подает`);
+    console.log(`[ACTION] Player: ${playerId}, Current turn: ${room.gameState.turn}`);
 
     const isTeam1 = room.players[0] === playerId;
     const attackingTeam = isTeam1 ? room.team1 : room.team2;
@@ -279,6 +280,8 @@ async function handleServe(roomId, room, playerId, io) {
         isCritical: isCritical,
         winSide: diff < -5 ? 'ATTACK' : 'DEFENSE'
     });
+    
+    console.log(`✅ [SERVE] Next turn: ${room.gameState.turn}, Phase: ${room.gameState.phase}`);
 
     if (room.isAI && room.gameState.turn === 'AI') {
         aiMakeMove(roomId, room, io);
@@ -286,6 +289,7 @@ async function handleServe(roomId, room, playerId, io) {
 }
 
 async function handleSet(roomId, room, playerId, targetPos, io, socket) {
+    console.log(`[ACTION] Player: ${playerId}, Current turn: ${room.gameState.turn}`);
     const isTeam1 = room.players[0] === playerId;
     const myTeam = isTeam1 ? room.team1 : room.team2;
     const enemyTeam = isTeam1 ? room.team2 : room.team1;
@@ -344,12 +348,15 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
         });
     }
 
+    console.log(`✅ [SET] Next turn: ${defenderId}, Phase: BLOCK`);
+
     if (room.isAI && room.gameState.turn === 'AI') {
         aiMakeMove(roomId, room, io);
     }
 }
 
 async function handleBlock(roomId, room, playerId, blockPos, io) {
+    console.log(`[ACTION] Player: ${playerId}, Current turn: ${room.gameState.turn}`);
     const ballPos = room.gameState.ballPosition; 
     let attackPosition = ballPos;
     if (ballPos === 3) attackPosition = 6; 
@@ -594,6 +601,13 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     room.gameState.turn = nextTurn;
     room.gameState.phase = nextPhase;
 
+    // Защита от null
+    if (nextTurn === null) {
+        console.error('❌ [CRITICAL] nextTurn is NULL!');
+        nextTurn = defenderId; // Fallback
+        room.gameState.turn = nextTurn;
+    }
+
     let isCritical = false;
     let isLegendary = false; 
 
@@ -611,6 +625,7 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     if (winner && checkGameOver(room, io, roomId)) {
         return; // Игра закончена, больше ничего не отправляем
     } else {
+        console.log(`✅ [BLOCK] Next turn: ${nextTurn}, Phase: ${nextPhase}`);
         io.to(roomId).emit('spike_result', {
             message: message + rotMessage,
             score: room.gameState.score,
