@@ -127,13 +127,64 @@ function checkGameOver(room, io, roomId) {
         });
 
         const winnerTeamName = s1 > s2 ? 'КОМАНДА 1' : 'КОМАНДА 2';
+        const playerWon = s1 > s2;
 
-        io.to(roomId).emit('game_over', {
-            message: `🏆 ПОБЕДА! Счет ${s1} : ${s2}`,
-            winner: winnerTeamName,
-            score: { team1: s1, team2: s2 },
-            mvp: mvp
-        });
+        // 🏆 ОБРАБОТКА ТУРНИРА
+        if (room.isTournament && room.tournamentRoomId) {
+            const tournamentRoom = games[room.tournamentRoomId];
+            if (tournamentRoom && tournamentRoom.tournament) {
+                const match = tournamentRoom.tournament.matches.find(m => m.id === room.matchId);
+                
+                if (match) {
+                    match.playerScore = s1;
+                    match.aiScore = s2;
+                    match.result = playerWon ? 'WIN' : 'LOSS';
+                    match.status = 'COMPLETED';
+                    
+                    if (playerWon) {
+                        tournamentRoom.tournament.wins++;
+                    } else {
+                        tournamentRoom.tournament.losses++;
+                    }
+
+                    io.to(room.tournamentRoomId).emit('match_result', {
+                        matchId: room.matchId,
+                        playerWon: playerWon,
+                        score: { team1: s1, team2: s2 },
+                        mvp: mvp,
+                        tournament: getTournamentState(tournamentRoom.tournament)
+                    });
+
+                    // Проверяем окончание турнира
+                    if (room.matchId >= 4) {
+                        io.to(room.tournamentRoomId).emit('tournament_finished', {
+                            wins: tournamentRoom.tournament.wins,
+                            losses: tournamentRoom.tournament.losses,
+                            totalMatches: 4
+                        });
+                    } else {
+                        // Переходим на следующий матч
+                        setTimeout(() => {
+                            const nextMatch = tournamentRoom.tournament.matches[room.matchId];
+                            if (nextMatch) {
+                                io.to(room.tournamentRoomId).emit('next_tournament_match', {
+                                    matchId: room.matchId + 1,
+                                    aiType: nextMatch.aiType
+                                });
+                            }
+                        }, 3000);
+                    }
+                }
+            }
+        } else {
+            // Обычная игра
+            io.to(roomId).emit('game_over', {
+                message: `🏆 ПОБЕДА! Счет ${s1} : ${s2}`,
+                winner: winnerTeamName,
+                score: { team1: s1, team2: s2 },
+                mvp: mvp
+            });
+        }
         return true; // Игра закончена
     }
     return false; // Игра продолжается
@@ -667,6 +718,66 @@ async function handleBlock(roomId, room, playerId, blockPos, io) {
     }
 }
 
+// ========== ТУРНИРНАЯ СИСТЕМА ========== 
+
+const TOURNAMENT_AI_ORDER = ['PHANTOM', 'TACTICAL', 'DATA', 'APEX'];
+
+function initializeTournament(playerTeam) {
+    const shuffledOrder = [...TOURNAMENT_AI_ORDER].sort(() => 0.5 - Math.random());
+    
+    return {
+        playerTeam: playerTeam,
+        matches: [
+            {
+                id: 1,
+                aiType: shuffledOrder[0],
+                playerScore: 0,
+                aiScore: 0,
+                status: 'UPCOMING',
+                result: null
+            },
+            {
+                id: 2,
+                aiType: shuffledOrder[1],
+                playerScore: 0,
+                aiScore: 0,
+                status: 'UPCOMING',
+                result: null
+            },
+            {
+                id: 3,
+                aiType: shuffledOrder[2],
+                playerScore: 0,
+                aiScore: 0,
+                status: 'UPCOMING',
+                result: null
+            },
+            {
+                id: 4,
+                aiType: shuffledOrder[3],
+                playerScore: 0,
+                aiScore: 0,
+                status: 'UPCOMING',
+                result: null
+            }
+        ],
+        currentMatchId: 1,
+        wins: 0,
+        losses: 0,
+        aiOrder: shuffledOrder
+    };
+}
+
+function getTournamentState(tournament) {
+    return {
+        currentMatchId: tournament.currentMatchId,
+        matches: tournament.matches,
+        wins: tournament.wins,
+        losses: tournament.losses,
+        aiOrder: tournament.aiOrder
+    };
+}
+
 // ========== СОКЕТЫ ========== 
 
 io.on('connection', (socket) => {
@@ -863,6 +974,125 @@ io.on('connection', (socket) => {
         const room = games[roomId];
         if (!room) return;
         handleBlock(roomId, room, socket.id, blockPos, io);
+    });
+
+    // ========== TOURNAMENT HANDLERS ==========
+    socket.on('create_tournament', () => {
+        const roomId = 'TOUR-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+        games[roomId] = {
+            roomId: roomId,
+            playerId: socket.id,
+            state: 'draft',
+            isTournament: true,
+            tournament: null,
+            playerTeam: [],
+            bannedCharacters: [],
+            draftTurn: socket.id
+        };
+        socket.join(roomId);
+        
+        io.to(roomId).emit('game_started', { 
+            start: true, 
+            players: [socket.id, 'AI'],
+            allCharacters: characters,
+            roomId: roomId,
+            isTournament: true
+        });
+        
+        io.to(roomId).emit('draft_turn', { turn: socket.id });
+    });
+
+    socket.on('tournament_character_picked', ({ roomId, charId }) => {
+        const room = games[roomId];
+        if (!room || !room.isTournament) return;
+        
+        if (!room.bannedCharacters.includes(charId)) {
+            room.bannedCharacters.push(charId);
+            io.to(roomId).emit('banned_characters', room.bannedCharacters);
+            io.to(roomId).emit('draft_turn', { turn: socket.id });
+        }
+    });
+
+    socket.on('tournament_team_ready', ({ roomId, team }) => {
+        const room = games[roomId];
+        if (!room || !room.isTournament) return;
+
+        const teamWithStats = team.map(p => {
+            const charFromDB = characters.find(c => c.id === p.id);
+            return {
+                ...p,
+                stats: p.stats || (charFromDB ? charFromDB.stats : p.stats),
+                quirk: p.quirk || (charFromDB ? charFromDB.quirk : p.quirk),
+                img: p.img || (charFromDB ? charFromDB.img : p.img),
+                matchStats: { points: 0, blocks: 0 }
+            };
+        });
+
+        room.playerTeam = teamWithStats;
+        room.tournament = initializeTournament(teamWithStats);
+        room.state = 'tournament';
+
+        io.to(roomId).emit('tournament_started', {
+            tournament: getTournamentState(room.tournament)
+        });
+    });
+
+    socket.on('start_tournament_match', ({ roomId, matchId }) => {
+        const room = games[roomId];
+        if (!room || !room.isTournament || !room.tournament) return;
+
+        const match = room.tournament.matches.find(m => m.id === matchId);
+        if (!match) return;
+
+        const gameRoomId = roomId + '-M' + matchId;
+        games[gameRoomId] = {
+            players: [socket.id, 'AI'],
+            team1: [],
+            team2: [],
+            state: 'match',
+            bannedCharacters: [],
+            isAI: true,
+            aiTeamReady: true,
+            aiType: match.aiType,
+            aiInstance: null,
+            isTournament: true,
+            tournamentRoomId: roomId,
+            matchId: matchId
+        };
+        socket.join(gameRoomId);
+
+        games[gameRoomId].team1 = room.playerTeam.map(p => ({...p, matchStats: { points: 0, blocks: 0 }}));
+        games[gameRoomId].team2 = aiDraftTeam(games[gameRoomId].team1.map(p => p.id));
+
+        const servingPlayerId = socket.id;
+        
+        games[gameRoomId].gameState = {
+            phase: 'SERVE', 
+            turn: servingPlayerId, 
+            score: { team1: 0, team2: 0 },
+            servingTeam: 'team1',
+            setterBonus: 0,
+            lastServerId: null,
+            serveStreak: 0
+        };
+
+        const aiTeam = games[gameRoomId].team2;
+        const humanTeam = games[gameRoomId].team1;
+        games[gameRoomId].aiInstance = AIFactory.createAI(match.aiType, aiTeam, humanTeam);
+        console.log(`🏆 ТУРНИР: Матч ${matchId} vs ${match.aiType}`);
+
+        io.to(gameRoomId).emit('match_start', { 
+            team1: games[gameRoomId].team1, 
+            team2: games[gameRoomId].team2,
+            players: [socket.id, 'AI'],
+            turn: servingPlayerId,
+            score: games[gameRoomId].gameState.score,
+            isTournament: true,
+            matchId: matchId,
+            aiType: match.aiType
+        });
+
+        aiMakeMove(gameRoomId, games[gameRoomId], io);
     });
 
     socket.on('disconnect', () => {
