@@ -958,7 +958,7 @@ io.on('connection', (socket) => {
 
     socket.on('character_picked', ({ roomId, charId }) => {
         const room = games[roomId];
-        if (!room) return;
+        if (!room || !room.players) return;
         
         if (room.isAI || room.draftTurn === socket.id) {
             if (!room.bannedCharacters.includes(charId)) {
@@ -978,7 +978,7 @@ io.on('connection', (socket) => {
 
     socket.on('team_ready', ({ roomId, team }) => {
         const room = games[roomId];
-        if (!room) return;
+        if (!room || !room.players) return;
 
         // ВАЖНО: Добавляем статы и восстанавливаем их из БД если нужно
         const teamWithStats = team.map(p => {
@@ -1033,7 +1033,7 @@ io.on('connection', (socket) => {
                 aiMakeMove(roomId, room, io);
             }
         }
-        else if (!room.isAI && room.team1.length === 6 && room.team2.length === 6) {
+        else if (!room.isAI && room.players && room.team1.length === 6 && room.team2.length === 6) {
             const firstServerIndex = Math.random() < 0.5 ? 0 : 1;
             const servingPlayerId = room.players[firstServerIndex];
             
@@ -1060,15 +1060,50 @@ io.on('connection', (socket) => {
         }
     });
 
-    socket.on('action_serve', ({ roomId }) => {
-        const room = games[roomId];
-        if (!room || room.gameState.turn !== socket.id) return;
-        handleServe(roomId, room, socket.id, io);
-    });
+socket.on('action_serve', ({ roomId }) => {
+    const room = games[roomId];
+    
+    // ✅ УЛУЧШЕННАЯ ПРОВЕРКА
+    if (!room) {
+        console.error(`[SERVE ERROR] Room ${roomId} not found`);
+        socket.emit('error_message', 'Комната не найдена');
+        return;
+    }
+    
+    if (!room.gameState) {
+        console.error(`[SERVE ERROR] GameState not initialized in room ${roomId}`);
+        socket.emit('error_message', 'Игра не инициализирована');
+        return;
+    }
+    
+    if (room.gameState.turn !== socket.id) {
+        console.log(`[SERVE] Not your turn. Current: ${room.gameState.turn}, You: ${socket.id}`);
+        return;
+    }
+    
+    handleServe(roomId, room, socket.id, io);
+});
 
     socket.on('action_set', ({ roomId, targetPos }) => {
         const room = games[roomId];
-        if (!room) return;
+        
+        // ✅ УЛУЧШЕННАЯ ПРОВЕРКА
+        if (!room) {
+            console.error(`[SET ERROR] Room ${roomId} not found`);
+            socket.emit('error_message', 'Комната не найдена');
+            return;
+        }
+        
+        if (!room.gameState) {
+            console.error(`[SET ERROR] GameState not initialized in room ${roomId}`);
+            socket.emit('error_message', 'Игра не инициализирована');
+            return;
+        }
+        
+        if (room.gameState.turn !== socket.id) {
+            console.log(`[SET] Not your turn. Current: ${room.gameState.turn}, You: ${socket.id}`);
+            return;
+        }
         
         // 🧠 ЗАПИСЬ ДЕЙСТВИЯ ИГРОКА ДЛЯ АНАЛИЗА ИИ
         if (room.isAI && room.aiInstance) {
@@ -1085,7 +1120,25 @@ io.on('connection', (socket) => {
 
     socket.on('action_block', ({ roomId, blockPos }) => {
         const room = games[roomId];
-        if (!room) return;
+        
+        // ✅ УЛУЧШЕННАЯ ПРОВЕРКА
+        if (!room) {
+            console.error(`[BLOCK ERROR] Room ${roomId} not found`);
+            socket.emit('error_message', 'Комната не найдена');
+            return;
+        }
+        
+        if (!room.gameState) {
+            console.error(`[BLOCK ERROR] GameState not initialized in room ${roomId}`);
+            socket.emit('error_message', 'Игра не инициализирована');
+            return;
+        }
+        
+        if (room.gameState.turn !== socket.id) {
+            console.log(`[BLOCK] Not your turn. Current: ${room.gameState.turn}, You: ${socket.id}`);
+            return;
+        }
+        
         handleBlock(roomId, room, socket.id, blockPos, io);
     });
 
@@ -1100,7 +1153,8 @@ io.on('connection', (socket) => {
             tournament: null,
             playerTeam: [],
             bannedCharacters: [],
-            draftTurn: socket.id
+            draftTurn: socket.id,
+            isProcessingPick: false // Защита от гонок при автопиках ИИ
         };
         socket.join(roomId);
         
@@ -1118,12 +1172,40 @@ io.on('connection', (socket) => {
     socket.on('tournament_character_picked', ({ roomId, charId }) => {
         const room = games[roomId];
         if (!room || !room.isTournament) return;
-        
-        if (!room.bannedCharacters.includes(charId)) {
-            room.bannedCharacters.push(charId);
-            io.to(roomId).emit('banned_characters', room.bannedCharacters);
-            io.to(roomId).emit('draft_turn', { turn: socket.id });
+
+        console.log(`[TOURNAMENT PICK] Room ${roomId}, Player ${socket.id}, Char ${charId}`);
+        console.log(`[TOURNAMENT PICK] room.draftTurn = ${room.draftTurn}`);
+        console.log(`[TOURNAMENT PICK] room.playerId = ${room.playerId}`);
+        console.log(`[TOURNAMENT PICK] bannedCharacters = ${room.bannedCharacters.join(', ')}`);
+
+        // ❌ УБИРАЕМ ПРОВЕРКУ НА ХОД В ТУРНИРЕ - игрок всегда может пикать
+        // if (room.draftTurn !== socket.id) {
+        //     socket.emit('pick_result', { success: false, reason: 'not_your_turn', charId });
+        //     return;
+        // }
+
+        // Проверяем, не выбран ли уже этот персонаж
+        if (room.bannedCharacters.includes(charId)) {
+            socket.emit('pick_result', { success: false, reason: 'already_picked', charId });
+            console.log(`[PICK REJECT] Already picked ${charId}`);
+            return;
         }
+
+        // Применяем пик
+        room.playerId = socket.id;
+        room.bannedCharacters.push(charId);
+        
+        console.log(`[PICK SUCCESS] ${charId} banned, total: ${room.bannedCharacters.length}`);
+        
+        // Отправляем обновления
+        io.to(roomId).emit('banned_characters', room.bannedCharacters);
+        socket.emit('pick_result', { success: true, charId });
+        
+        // В турнире ход ВСЕГДА остаётся у игрока
+        room.draftTurn = socket.id;
+        io.to(roomId).emit('draft_turn', { turn: socket.id });
+        
+        console.log(`[PICK COMPLETE] Next turn: ${socket.id}`);
     });
 
     socket.on('tournament_team_ready', ({ roomId, team }) => {
@@ -1152,12 +1234,23 @@ io.on('connection', (socket) => {
 
     socket.on('start_tournament_match', ({ roomId, matchId }) => {
         const room = games[roomId];
-        if (!room || !room.isTournament || !room.tournament) return;
+        if (!room || !room.isTournament || !room.tournament) {
+            console.error(`[TOURNAMENT ERROR] Invalid room ${roomId}`);
+            return;
+        }
 
         const match = room.tournament.matches.find(m => m.id === matchId);
-        if (!match) return;
+        if (!match) {
+            console.error(`[TOURNAMENT ERROR] Match ${matchId} not found`);
+            return;
+        }
 
         const gameRoomId = roomId + '-M' + matchId;
+        
+        console.log(`🏆 [TOURNAMENT] Creating match room: ${gameRoomId}`);
+        console.log(`🏆 [TOURNAMENT] Player: ${socket.id}`);
+        console.log(`🏆 [TOURNAMENT] AI Type: ${match.aiType}`);
+        
         games[gameRoomId] = {
             players: [socket.id, 'AI'],
             team1: [],
@@ -1192,7 +1285,9 @@ io.on('connection', (socket) => {
         const aiTeam = games[gameRoomId].team2;
         const humanTeam = games[gameRoomId].team1;
         games[gameRoomId].aiInstance = AIFactory.createAI(match.aiType, aiTeam, humanTeam);
-        console.log(`🏆 ТУРНИР: Матч ${matchId} vs ${match.aiType}`);
+        
+        console.log(`🤖 [TOURNAMENT] AI initialized: ${match.aiType}`);
+        console.log(`🎮 [TOURNAMENT] Initial turn: ${servingPlayerId}`);
 
         io.to(gameRoomId).emit('match_start', { 
             team1: games[gameRoomId].team1, 
@@ -1202,10 +1297,12 @@ io.on('connection', (socket) => {
             score: games[gameRoomId].gameState.score,
             isTournament: true,
             matchId: matchId,
-            aiType: match.aiType
+            aiType: match.aiType,
+            gameRoomId: gameRoomId // ← ОТПРАВЛЯЕМ ПРАВИЛЬНЫЙ roomId
         });
 
-        aiMakeMove(gameRoomId, games[gameRoomId], io);
+        // ❌ УБИРАЕМ ЭТОТ ВЫЗОВ - он лишний, подача начинается с игрока
+        // aiMakeMove(gameRoomId, games[gameRoomId], io);
     });
 
     socket.on('disconnect', () => {
