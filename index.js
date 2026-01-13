@@ -28,6 +28,7 @@ const io = new Server(server, {
 });
 
 let games = {};
+let aiMoveTimeouts = {}; // 🛡️ Отслеживаем таймауты ИИ ходов для предотвращения зависаний
 
 // Утилита задержки
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -203,43 +204,151 @@ function aiDraftTeam(bannedIds = []) {
 }
 
 function aiChooseSetPosition(room) {
-    if (room.aiInstance && room.aiInstance.chooseSetPosition) {
-        return room.aiInstance.chooseSetPosition();
+    try {
+        if (room.aiInstance && room.aiInstance.chooseSetPosition) {
+            const pos = room.aiInstance.chooseSetPosition();
+            if (pos && [2, 3, 4].includes(pos)) {
+                return pos;
+            }
+        }
+    } catch (error) {
+        console.error(`[AI SET ERROR] ${error.message}`);
     }
+    // 🛡️ FALLBACK: всегда вернуть корректную позицию
     const positions = [2, 3, 4];
-    return positions[Math.floor(Math.random() * positions.length)];
+    const fallback = positions[Math.floor(Math.random() * positions.length)];
+    console.log(`[AI FALLBACK] Using set position: ${fallback}`);
+    return fallback;
 }
 
 function aiChooseBlockPosition(room) {
-    if (room.aiInstance && room.aiInstance.chooseBlockPosition) {
-        return room.aiInstance.chooseBlockPosition();
+    try {
+        if (room.aiInstance && room.aiInstance.chooseBlockPosition) {
+            const pos = room.aiInstance.chooseBlockPosition();
+            if (pos && [2, 3, 4].includes(pos)) {
+                return pos;
+            }
+        }
+    } catch (error) {
+        console.error(`[AI BLOCK ERROR] ${error.message}`);
     }
-    const ballPos = room.gameState.ballPosition;
-    if (Math.random() < 0.7) {
+    
+    // 🛡️ FALLBACK: сделаем умный выбор
+    const ballPos = room.gameState?.ballPosition;
+    if (ballPos && Math.random() < 0.7) {
         let correctBlockPos = 3;
         if (ballPos === 4) correctBlockPos = 2;
         if (ballPos === 2) correctBlockPos = 4;
         if (ballPos === 3) correctBlockPos = 3;
+        console.log(`[AI FALLBACK] Using smart block position: ${correctBlockPos}`);
         return correctBlockPos;
     }
     const positions = [2, 3, 4];
-    return positions[Math.floor(Math.random() * positions.length)];
+    const fallback = positions[Math.floor(Math.random() * positions.length)];
+    console.log(`[AI FALLBACK] Using random block position: ${fallback}`);
+    return fallback;
 }
 
 async function aiMakeMove(roomId, room, io) {
-    await delay(2000 + Math.random() * 1000);
-    if (!room.isAI || room.gameState.turn !== 'AI') return;
-    const phase = room.gameState.phase;
-    if (phase === 'SERVE') {
-        handleServe(roomId, room, 'AI', io);
-    } 
-    else if (phase === 'SET') {
-        const targetPos = aiChooseSetPosition(room);
-        handleSet(roomId, room, 'AI', targetPos, io, null);
-    }
-    else if (phase === 'BLOCK') {
-        const blockPos = aiChooseBlockPosition(room);
-        handleBlock(roomId, room, 'AI', blockPos, io);
+    try {
+        // 🛡️ ВАЛИДАЦИЯ
+        if (!room) {
+            console.error(`[AI ERROR] Room ${roomId} not found!`);
+            return;
+        }
+        if (!room.gameState) {
+            console.error(`[AI ERROR] GameState not initialized in room ${roomId}`);
+            return;
+        }
+        if (!room.isAI) {
+            console.error(`[AI ERROR] This is not an AI match in room ${roomId}`);
+            return;
+        }
+        if (room.gameState.turn !== 'AI') {
+            console.log(`[AI] Not AI turn yet, waiting... (Current turn: ${room.gameState.turn})`);
+            return;
+        }
+
+        const phase = room.gameState.phase;
+        if (!phase) {
+            console.error(`[AI ERROR] No phase in gameState for room ${roomId}`);
+            return;
+        }
+
+        console.log(`🤖 [AI MOVE] Room: ${roomId}, Phase: ${phase}`);
+        
+        // 🛡️ ОЧИЩАЕМ СТАРЫЙ ТАЙМАУТ ЕСЛИ БЫЛ
+        if (aiMoveTimeouts[roomId]) {
+            clearTimeout(aiMoveTimeouts[roomId]);
+        }
+
+        // 🛡️ УСТАНАВЛИВАЕМ ТАЙМАУТ НА 10 СЕКУНД
+        const timeoutId = setTimeout(() => {
+            console.warn(`[AI TIMEOUT] AI move took too long in room ${roomId}, forcing action...`);
+            if (games[roomId] && games[roomId].gameState.turn === 'AI') {
+                console.log(`[AI FORCE] Forcing move for phase ${games[roomId].gameState.phase}`);
+                // Пытаемся принудительно сделать ход
+                const currentRoom = games[roomId];
+                const currentPhase = currentRoom.gameState.phase;
+                try {
+                    if (currentPhase === 'SERVE') {
+                        handleServe(roomId, currentRoom, 'AI', io);
+                    } else if (currentPhase === 'SET') {
+                        const targetPos = aiChooseSetPosition(currentRoom);
+                        handleSet(roomId, currentRoom, 'AI', targetPos, io, null);
+                    } else if (currentPhase === 'BLOCK') {
+                        const blockPos = aiChooseBlockPosition(currentRoom);
+                        handleBlock(roomId, currentRoom, 'AI', blockPos, io);
+                    }
+                } catch (error) {
+                    console.error(`[AI FORCE ERROR] ${error.message}`);
+                }
+            }
+            delete aiMoveTimeouts[roomId];
+        }, 10000); // 10 секунд таймаут
+
+        aiMoveTimeouts[roomId] = timeoutId;
+        
+        await delay(2000 + Math.random() * 1000);
+
+        // 🛡️ ПРОВЕРЯЕМ ЕЩЕ РАЗ ПОСЛЕ ЗАДЕРЖКИ
+        if (!games[roomId] || games[roomId].gameState.turn !== 'AI') {
+            clearTimeout(aiMoveTimeouts[roomId]);
+            delete aiMoveTimeouts[roomId];
+            console.warn(`[AI] Game state changed while waiting`);
+            return;
+        }
+
+        if (phase === 'SERVE') {
+            handleServe(roomId, room, 'AI', io);
+        } 
+        else if (phase === 'SET') {
+            const targetPos = aiChooseSetPosition(room);
+            if (!targetPos || ![2, 3, 4].includes(targetPos)) {
+                console.error(`[AI ERROR] Invalid set position: ${targetPos}`);
+                return;
+            }
+            handleSet(roomId, room, 'AI', targetPos, io, null);
+        }
+        else if (phase === 'BLOCK') {
+            const blockPos = aiChooseBlockPosition(room);
+            if (!blockPos || ![2, 3, 4].includes(blockPos)) {
+                console.error(`[AI ERROR] Invalid block position: ${blockPos}`);
+                return;
+            }
+            handleBlock(roomId, room, 'AI', blockPos, io);
+        }
+        else {
+            console.error(`[AI ERROR] Unknown phase: ${phase}`);
+        }
+
+        // 🛡️ ОЧИЩАЕМ ТАЙМАУТ ПОСЛЕ УСПЕШНОГО ВЫПОЛНЕНИЯ
+        clearTimeout(aiMoveTimeouts[roomId]);
+        delete aiMoveTimeouts[roomId];
+    } catch (error) {
+        console.error(`[AI EXCEPTION] ${error.message}`, error);
+        clearTimeout(aiMoveTimeouts[roomId]);
+        delete aiMoveTimeouts[roomId];
     }
 }
 
@@ -372,6 +481,10 @@ async function handleSet(roomId, room, playerId, targetPos, io, socket) {
     room.gameState.phase = 'BLOCK';
     
     const defenderId = room.players.find(id => id !== playerId);
+    if (!defenderId) {
+        console.error(`[SET ERROR] Cannot find defender. Players: ${room.players}`);
+        return;
+    }
     room.gameState.turn = defenderId;
 
     let positionName = "";
