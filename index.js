@@ -5,6 +5,7 @@ const cors = require('cors');
 
 // Убедись, что файл ./data/characters.js существует!
 const characters = require('./data/characters');
+const { AIFactory } = require('./ai/AIStrategies');
 
 const app = express();
 app.use(cors());
@@ -151,11 +152,17 @@ function aiDraftTeam(bannedIds = []) {
 }
 
 function aiChooseSetPosition(room) {
+    if (room.aiInstance && room.aiInstance.chooseSetPosition) {
+        return room.aiInstance.chooseSetPosition();
+    }
     const positions = [2, 3, 4];
     return positions[Math.floor(Math.random() * positions.length)];
 }
 
 function aiChooseBlockPosition(room) {
+    if (room.aiInstance && room.aiInstance.chooseBlockPosition) {
+        return room.aiInstance.chooseBlockPosition();
+    }
     const ballPos = room.gameState.ballPosition;
     if (Math.random() < 0.7) {
         let correctBlockPos = 3;
@@ -245,6 +252,11 @@ async function handleServe(roomId, room, playerId, io) {
         if (serverPlayer.matchStats) serverPlayer.matchStats.points++;
         if (isTeam1) room.gameState.score.team1++;
         else room.gameState.score.team2++;
+        
+        // 🧠 ОБНОВЛЯЕМ СЧЕТ В ИИ
+        if (room.isAI && room.aiInstance && room.aiInstance.updateScore) {
+            room.aiInstance.updateScore(room.gameState.score.team1, room.gameState.score.team2);
+        }
         
         room.gameState.phase = 'SERVE';
         room.gameState.turn = playerId;
@@ -661,7 +673,7 @@ io.on('connection', (socket) => {
     console.log(`[+] Игрок подключился: ${socket.id}`);
 
     // AI MODE
-    socket.on('create_ai_game', () => {
+    socket.on('create_ai_game', ({ aiType = 'CHAOS' } = {}) => {
         const roomId = 'AI-' + Math.random().toString(36).substring(2, 7).toUpperCase();
         games[roomId] = {
             players: [socket.id, 'AI'],
@@ -670,7 +682,9 @@ io.on('connection', (socket) => {
             state: 'draft',
             bannedCharacters: [],
             isAI: true,
-            aiTeamReady: false
+            aiTeamReady: false,
+            aiType: aiType,
+            aiInstance: null
         };
         socket.join(roomId);
         
@@ -742,11 +756,17 @@ io.on('connection', (socket) => {
         const room = games[roomId];
         if (!room) return;
 
-        // ВАЖНО: Добавляем статы
-        const teamWithStats = team.map(p => ({
-            ...p,
-            matchStats: { points: 0, blocks: 0 }
-        }));
+        // ВАЖНО: Добавляем статы и восстанавливаем их из БД если нужно
+        const teamWithStats = team.map(p => {
+            const charFromDB = characters.find(c => c.id === p.id);
+            return {
+                ...p,
+                stats: p.stats || (charFromDB ? charFromDB.stats : p.stats),
+                quirk: p.quirk || (charFromDB ? charFromDB.quirk : p.quirk),
+                img: p.img || (charFromDB ? charFromDB.img : p.img),
+                matchStats: { points: 0, blocks: 0 }
+            };
+        });
 
         if (socket.id === room.players[0]) room.team1 = teamWithStats;
         else room.team2 = teamWithStats;
@@ -767,6 +787,12 @@ io.on('connection', (socket) => {
                 lastServerId: null,
                 serveStreak: 0
             };
+
+            // 🤖 ИНИЦИАЛИЗИРУЕМ ИИ
+            const aiTeam = firstServerIndex === 0 ? room.team2 : room.team1;
+            const humanTeam = firstServerIndex === 0 ? room.team1 : room.team2;
+            room.aiInstance = AIFactory.createAI(room.aiType, aiTeam, humanTeam);
+            console.log(`🤖 ИИ инициализирован: ${room.aiType}`);
 
             room.draftTurn = null;
             io.to(roomId).emit('draft_finished');
@@ -819,6 +845,17 @@ io.on('connection', (socket) => {
     socket.on('action_set', ({ roomId, targetPos }) => {
         const room = games[roomId];
         if (!room) return;
+        
+        // 🧠 ЗАПИСЬ ДЕЙСТВИЯ ИГРОКА ДЛЯ АНАЛИЗА ИИ
+        if (room.isAI && room.aiInstance) {
+            if (room.aiInstance.recordPlayerSet) {
+                room.aiInstance.recordPlayerSet(targetPos);
+            }
+            if (room.aiInstance.recordAction) {
+                room.aiInstance.recordAction({ type: 'SET', position: targetPos });
+            }
+        }
+        
         handleSet(roomId, room, socket.id, targetPos, io, socket);
     });
 
